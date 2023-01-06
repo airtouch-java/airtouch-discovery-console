@@ -21,8 +21,19 @@ import org.jline.reader.UserInterruptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import airtouch.console.app.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
+import airtouch.console.data.AirtouchStatus;
+import airtouch.console.event.AirtouchResponseEventListener;
+import airtouch.console.event.AirtouchStatusEventListener;
+import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
+import airtouch.console.service.AirtouchService;
 import airtouch.v4.Response;
+import airtouch.v4.builder.GroupControlRequestBuilder;
+import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
+import airtouch.v4.constant.GroupControlConstants.GroupControl;
+import airtouch.v4.constant.GroupControlConstants.GroupPower;
+import airtouch.v4.constant.GroupControlConstants.GroupSetting;
+import airtouch.v4.handler.AirConditionerControlHandler;
+import airtouch.v4.handler.GroupControlHandler;
 import airtouch.v4.model.AirConditionerAbilityResponse;
 import airtouch.v4.model.AirConditionerStatusResponse;
 import airtouch.v4.model.ConsoleVersionResponse;
@@ -32,35 +43,49 @@ import airtouch.v4.model.GroupStatusResponse;
 @SuppressWarnings("java:S106") // Tell Sonar not to worry about System.out. We need to use it.
 public class AirtouchConsole {
 
-    private final Logger log = LoggerFactory.getLogger(AirtouchConsole.class);
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-
+	private final Logger log = LoggerFactory.getLogger(AirtouchConsole.class);
+	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+	private boolean running = true;
+	private AirTouchStatusUpdater airTouchStatusUpdater;
 
 	public void begin() throws InterruptedException, IOException {
-		boolean running = true;
 
 		AnsiConsole.systemInstall();
 
 		Completer completer = new TreeCompleter(
-			    node("Command1",
-			        node("Option1",
-			            node("Param1", "Param2")),
-			        node("Option2"),
-			        node("Option3")),
-			    node("quit")
-			    );
+				node("ac",
+					node("0", "1", "2", "3",
+						node("power",
+							node("on","off")
+						)
+					)
+				),
+				node("group",
+					node("0", "1", "2", "3",
+						node("target-temp",
+								node("20","21","22","23","24","25") // TODO, this should be the valid temps as determined by AcStatus
+						),
+						node("power",
+								node("on","off")
+								)
+					)
+				),
+				node("quit")
+				);
 
-	    LineReader reader = LineReaderBuilder
-	    		.builder()
-	    		.completer(completer)
-	    		.build();
-	    String prompt = "my prompt";
+		LineReader reader = LineReaderBuilder
+				.builder()
+				.completer(completer)
+				.build();
+		String prompt = "";
 
 
 		AnsiConsole.out.println(ansi().eraseScreen().fg(GREEN).a("AirTouch Console").reset());
 		System.out.println(ansi().fg(GREEN).a("Fetching Airtouch data....").reset());
 
-		AirtouchService service = new AirtouchService().confgure(null, null, new AirTouchStatusUpdater()).start();
+		airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
+
+		AirtouchService service = new AirtouchService().confgure(null, null, airTouchStatusUpdater).start();
 		service.startHeartbeat(new HeartbeatSecondEventHandler() {
 
 			@Override
@@ -75,85 +100,116 @@ public class AirtouchConsole {
 		});
 
 
-//        while (running) {
-//	        while(scanner.hasNext()){
-//	        	int line = System.in.read();
-//	            System.out.printf("User input was: %s%n", line);
-//	        }
-//        }
-
-        /*
-        try {
-            while (true) {
-                System.out.println("Please input a line");
-                long then = System.currentTimeMillis();
-                int line = System.in.read();
-                long now = System.currentTimeMillis();
-                System.out.printf("Waited %.3fs for user input%n", (now - then) / 1000d);
-                System.out.printf("User input was: %s%n", line);
-            }
-        } catch(IllegalStateException | NoSuchElementException e) {
-            // System.in has been closed
-            System.out.println("System.in was closed; exiting");
-        }*/
-
-	    while (running) {
-	        String line = null;
-	        try {
-	            line = reader.readLine(prompt);
-	        } catch (UserInterruptException e) {
-	            // Ignore
-	        } catch (EndOfFileException e) {
-	            return;
-	        }
-	        if (line.equalsIgnoreCase("quit")) {
-	        	running = false;
-	        	System.exit(0);
-	        }
-	    }
+		while (running) {
+			try {
+				reader.readLine(prompt);
+			} catch (UserInterruptException e) {
+				// Ignore
+			} catch (EndOfFileException e) {
+				return;
+			}
+			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
+				handleInput(service, reader.getParsedLine().words());
+			} else {
+				System.out.println(reader.getParsedLine().words());
+			}
+		}
 
 		service.stop();
 
 	}
 
-	public static class AirTouchStatusUpdater implements AirtouchServiceEventListener {
+	private void handleInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
+		switch(list.get(0).toLowerCase()) {
+		case "quit":
+			this.running = false;
+			System.exit(0);
+			break;
+		case "ac":
+			handleAcInput(service, list);
+			break;
+		case "group":
+			handleGroupInput(service, list);
+			service.sendRequest(
+				GroupControlHandler.requestBuilder(Integer.valueOf(list.get(2)))
+					.power(determineGroupPower(list.get(1)))
+					.build(service.getNextCounter()));
+			break;
+		}
+	}
 
-		private AirtouchStatus status = new AirtouchStatus();
+	private void handleGroupInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
+		// group 0/1/2/3 target-temp temp
+		// group 0/1/2/3 power on/off
+		switch (list.get(2).toLowerCase()) {
+		case "target-temp":
+			service.sendRequest(
+				GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
+				.setting(GroupSetting.SET_TARGET_SETPOINT)
+				.settingValue(determineAndValidateSettingValue(GroupSetting.SET_TARGET_SETPOINT, list.get(3)))
+				.build(service.getNextCounter()));
+			break;
+		case "power":
+			service.sendRequest(
+					GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
+					.power(determineGroupPower(list.get(2)))
+					.build(service.getNextCounter()));
+			break;
+		}
+	}
 
-		@SuppressWarnings({ "unchecked", "rawtypes" })
-		public void eventReceived(Response response) {
-			switch (response.getMessageType()) {
-			case AC_STATUS:
-				status.setAcStatuses(response.getData());
-				break;
-			case GROUP_STATUS:
-				status.setGroupStatuses(response.getData());
-				break;
-			case GROUP_NAME:
-				status.setGroupNames(
-						((List<GroupNameResponse>) response.getData())
-						.stream()
-						.collect(Collectors.toMap(GroupNameResponse::getGroupNumber, GroupNameResponse::getName)));
-				break;
-			case AC_ABILITY:
-				status.setAcAbilities(
-						((List<AirConditionerAbilityResponse>) response.getData())
-						.stream()
-						.collect(Collectors.toMap(AirConditionerAbilityResponse::getAcNumber, r -> r))
-						);
-				break;
-			case CONSOLE_VERSION:
-				status.setConsoleVersion((ConsoleVersionResponse) response.getData()
-						.stream()
-						.findFirst()
-						.orElse(null));
-				break;
-			case EXTENDED:
-				break;
-			case GROUP_CONTROL:
-				break;
-			default:
-				break;
+	private int determineAndValidateSettingValue(GroupSetting groupSetting, String settingValue) {
+		int value = Integer.valueOf(settingValue);
+		if (GroupSetting.SET_TARGET_SETPOINT.equals(groupSetting) && isValidTemperatureSetPoint(value)) {
+			return value;
+		} else if (GroupSetting.SET_OPEN_PERCENTAGE.equals(groupSetting) && isValidOpenPercentage(value)){
+			return value;
+		} else {
+			throw new IllegalArgumentException("Value is outside allowable range.");
+		}
+	}
+
+	private boolean isValidOpenPercentage(int value) {
+		return value >= 0 && value <= 100 && value % 5 == 0;
+	}
+
+	private boolean isValidTemperatureSetPoint(int value) {
+		return true; // TODD: Fix impl
+	}
+
+	private void handleAcInput(AirtouchService service, List<String> list) throws IOException {
+		// ac 0/1/2/3 power on/off
+		switch (list.get(2).toLowerCase()) {
+		case "power":
+			service.sendRequest(
+				AirConditionerControlHandler.requestBuilder()
+				.acNumber(Integer.valueOf(list.get(1)))
+				.acPower(determineAcPower(list.get(3)))
+				.build(service.getNextCounter()));
+			break;
+		}
+	}
+
+	private GroupPower determineGroupPower(String groupPowerStr) {
+		return "on".equalsIgnoreCase(groupPowerStr) ? GroupPower.POWER_ON : GroupPower.POWER_OFF;
+	}
+
+	private AcPower determineAcPower(String acPowerStr) {
+		return "on".equalsIgnoreCase(acPowerStr) ? AcPower.POWER_ON : AcPower.POWER_OFF;
+	}
+
+	public static class AirTouchStatusUpdater implements AirtouchStatusEventListener {
+
+		LineReader reader;
+		public AirTouchStatusUpdater(LineReader reader) {
+			this.reader = reader;
+		}
+
+		@Override
+		public void eventReceived(AirtouchStatus status) {
+
+			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
+				return;
 			}
 
 			System.out.println(ansi()
@@ -178,7 +234,7 @@ public class AirtouchConsole {
 						.a(leftPaddedBox(20,
 								String.format("AC unit: %s", status.getAcAbilities().get(acStatus.getAcNumber()).getAcName())
 							)
-						  )
+						)
 						.fg(YELLOW).a("║").reset()
 						.a(leftPaddedBox(15,String.format("Power: %s ", acStatus.getPowerstate())))
 						.fg(YELLOW).a("║").reset()
@@ -259,6 +315,7 @@ public class AirtouchConsole {
 		private String rightPaddedBox(int width, String inputString) {
 			return String.format(" %1$" + (width -2) + "s", inputString);
 		}
+
 	}
 
 }

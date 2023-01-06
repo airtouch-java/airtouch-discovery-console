@@ -1,4 +1,4 @@
-package airtouch.console.app;
+package airtouch.console.data;
 
 import airtouch.v4.constant.AcStatusConstants.FanSpeed;
 import airtouch.v4.constant.AcStatusConstants.Mode;

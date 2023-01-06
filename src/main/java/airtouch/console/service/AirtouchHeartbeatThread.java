@@ -1,4 +1,4 @@
-package airtouch.console.app;
+package airtouch.console.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

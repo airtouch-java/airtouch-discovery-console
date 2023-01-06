@@ -1,4 +1,4 @@
-package airtouch.console.app;
+package airtouch.console.data;
 
 import java.util.ArrayList;
 import java.util.HashMap;
