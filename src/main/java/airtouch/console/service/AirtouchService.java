@@ -167,6 +167,7 @@ public class AirtouchService implements AirtouchResponseEventListener {
 		}
 
 		if (!this.responseReceived.containsValue(Boolean.FALSE)) {
+			log.debug("Expected events received: {}. Sending update to listeners.", this.responseReceived);
 			this.eventListener.eventReceived(getStatus());
 		} else {
 			log.debug("Not all events received yet: {}", this.responseReceived);

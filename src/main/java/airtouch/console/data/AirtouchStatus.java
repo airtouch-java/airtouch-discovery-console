@@ -18,5 +18,4 @@ public class AirtouchStatus {
 	private List<GroupStatusResponse> groupStatuses = new ArrayList<>();
 	private Map<Integer, String> groupNames = new HashMap<>();
 	private ConsoleVersionResponse consoleVersion = null;
-	//private
 }

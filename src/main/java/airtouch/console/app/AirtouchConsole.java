@@ -2,14 +2,10 @@ package airtouch.console.app;
 
 import static org.fusesource.jansi.Ansi.ansi;
 import static org.fusesource.jansi.Ansi.Color.GREEN;
-import static org.fusesource.jansi.Ansi.Color.YELLOW;
 import static org.jline.builtins.Completers.TreeCompleter.node;
 
 import java.io.IOException;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.fusesource.jansi.AnsiConsole;
 import org.jline.builtins.Completers.TreeCompleter;
@@ -21,53 +17,63 @@ import org.jline.reader.UserInterruptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import airtouch.console.data.AirtouchStatus;
-import airtouch.console.event.AirtouchResponseEventListener;
-import airtouch.console.event.AirtouchStatusEventListener;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
-import airtouch.v4.Response;
-import airtouch.v4.builder.GroupControlRequestBuilder;
 import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
 import airtouch.v4.constant.GroupControlConstants.GroupControl;
 import airtouch.v4.constant.GroupControlConstants.GroupPower;
 import airtouch.v4.constant.GroupControlConstants.GroupSetting;
+import airtouch.v4.discovery.AirtouchBroadcaster;
+import airtouch.v4.discovery.BroadcastResponseCallback;
 import airtouch.v4.handler.AirConditionerControlHandler;
 import airtouch.v4.handler.GroupControlHandler;
-import airtouch.v4.model.AirConditionerAbilityResponse;
-import airtouch.v4.model.AirConditionerStatusResponse;
-import airtouch.v4.model.ConsoleVersionResponse;
-import airtouch.v4.model.GroupNameResponse;
-import airtouch.v4.model.GroupStatusResponse;
 
 @SuppressWarnings("java:S106") // Tell Sonar not to worry about System.out. We need to use it.
 public class AirtouchConsole {
 
-	private final Logger log = LoggerFactory.getLogger(AirtouchConsole.class);
-	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+	private final static Logger log = LoggerFactory.getLogger(AirtouchConsole.class);
 	private boolean running = true;
 	private AirTouchStatusUpdater airTouchStatusUpdater;
 
 	public void begin() throws InterruptedException, IOException {
 
+		AirtouchBroadcaster broadcaster = new AirtouchBroadcaster(new BroadcastResponseCallback() {
+			
+			@Override
+			public void handleResponse(String response) {
+				log.info(response);
+			}
+		});
+		
+		broadcaster.start();
+		
 		AnsiConsole.systemInstall();
 
 		Completer completer = new TreeCompleter(
 				node("ac",
 					node("0", "1", "2", "3",
 						node("power",
-							node("on","off")
+							node("on", "off")
+						),
+						node("mode",
+							node("cool", "heat")
 						)
 					)
 				),
 				node("group",
 					node("0", "1", "2", "3",
 						node("target-temp",
-								node("20","21","22","23","24","25") // TODO, this should be the valid temps as determined by AcStatus
+							node("20","21","22","23","24","25") // TODO, this should be the valid temps as determined by AcStatus
+						),
+						node("open-percentage",
+							node("0", "5", "10", "15", "20", "25", "30", "35", "40", "45","50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100")
 						),
 						node("power",
-								node("on","off")
-								)
+							node("on", "off", "turbo")
+						),
+						node("control",
+							node("temperature", "percentage")
+						)
 					)
 				),
 				node("quit")
@@ -130,10 +136,6 @@ public class AirtouchConsole {
 			break;
 		case "group":
 			handleGroupInput(service, list);
-			service.sendRequest(
-				GroupControlHandler.requestBuilder(Integer.valueOf(list.get(2)))
-					.power(determineGroupPower(list.get(1)))
-					.build(service.getNextCounter()));
 			break;
 		}
 	}
@@ -141,6 +143,7 @@ public class AirtouchConsole {
 	private void handleGroupInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
 		// group 0/1/2/3 target-temp temp
 		// group 0/1/2/3 power on/off
+		// group 0/1/2/3 control temperature/percentage
 		switch (list.get(2).toLowerCase()) {
 		case "target-temp":
 			service.sendRequest(
@@ -149,13 +152,30 @@ public class AirtouchConsole {
 				.settingValue(determineAndValidateSettingValue(GroupSetting.SET_TARGET_SETPOINT, list.get(3)))
 				.build(service.getNextCounter()));
 			break;
+		case "open-percentage":
+			service.sendRequest(
+					GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
+					.setting(GroupSetting.SET_OPEN_PERCENTAGE)
+					.settingValue(determineAndValidateSettingValue(GroupSetting.SET_OPEN_PERCENTAGE, list.get(3)))
+					.build(service.getNextCounter()));
+			break;
 		case "power":
 			service.sendRequest(
 					GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
-					.power(determineGroupPower(list.get(2)))
+					.power(determineGroupPower(list.get(3)))
+					.build(service.getNextCounter()));
+			break;
+		case "control":
+			service.sendRequest(
+					GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
+					.control(determineGroupControl(list.get(3)))
 					.build(service.getNextCounter()));
 			break;
 		}
+	}
+
+	private GroupControl determineGroupControl(String groupControlStr) {
+		return "temperature".equalsIgnoreCase(groupControlStr) ? GroupControl.TEMPERATURE_CONTROL : GroupControl.PERCENTAGE_CONTROL;
 	}
 
 	private int determineAndValidateSettingValue(GroupSetting groupSetting, String settingValue) {
@@ -191,131 +211,20 @@ public class AirtouchConsole {
 	}
 
 	private GroupPower determineGroupPower(String groupPowerStr) {
-		return "on".equalsIgnoreCase(groupPowerStr) ? GroupPower.POWER_ON : GroupPower.POWER_OFF;
+		switch (groupPowerStr.toLowerCase()) {
+		case "on":
+			return GroupPower.POWER_ON;
+		case "off": 
+			return GroupPower.POWER_OFF;
+		case "turbo":
+			return GroupPower.TURBO_POWER;
+		default:
+			return GroupPower.NO_CHANGE;
+		}
 	}
 
 	private AcPower determineAcPower(String acPowerStr) {
 		return "on".equalsIgnoreCase(acPowerStr) ? AcPower.POWER_ON : AcPower.POWER_OFF;
-	}
-
-	public static class AirTouchStatusUpdater implements AirtouchStatusEventListener {
-
-		LineReader reader;
-		public AirTouchStatusUpdater(LineReader reader) {
-			this.reader = reader;
-		}
-
-		@Override
-		public void eventReceived(AirtouchStatus status) {
-
-			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
-				return;
-			}
-
-			System.out.println(ansi()
-					.eraseScreen()
-					.fg(YELLOW)
-					.a("╔══════════════════════════════════════════════════════════════════════════════╗")
-					);
-			System.out.println(ansi()
-					.fg(YELLOW).a("║")
-					.fg(GREEN)
-					.a(String.format(" AirTouch Console(s) - versions: %1$-27s", status.getConsoleVersion() != null ? status.getConsoleVersion().getVersions() : "Unknown"))
-					.a(String.format("Updated: %1$8s ", LocalTime.now().format(formatter)))
-					.fg(YELLOW).a("║")
-					);
-			for (AirConditionerStatusResponse acStatus : status.getAcStatuses()) {
-				System.out.println(ansi()
-						.a("╠══════════════════════════════════════════════════════════════════════════════╣")
-						.reset()
-						);
-				System.out.println(ansi()
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20,
-								String.format("AC unit: %s", status.getAcAbilities().get(acStatus.getAcNumber()).getAcName())
-							)
-						)
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(15,String.format("Power: %s ", acStatus.getPowerstate())))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(24,String.format("Fan Speed: %s ", acStatus.getFanSpeed())))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20,String.format("Temperature: %d°C ", acStatus.getCurrentTemperature())))
-						.fg(YELLOW).a("║").reset()
-						);
-				System.out.println(ansi()
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20,""))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(15,String.format("Mode: %s ", acStatus.getMode())))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(24,String.format("Target temp: %s°C", acStatus.getTargetSetpoint())))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20,String.format("ErrorCode: %s", acStatus.getErrorCode())))
-						.fg(YELLOW).a("║").reset()
-						);
-
-			}
-			for ( GroupStatusResponse groupStatus :  status.getGroupStatuses()) {
-				System.out.println(ansi()
-						.fg(YELLOW)
-						.a("╠══════════════════════════════════════════════════════════════════════════════╣")
-						.reset()
-						);
-				System.out.println(ansi()
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20, String.format("Group: %d (%s) ", groupStatus.getGroupNumber(), status.getGroupNames().getOrDefault(groupStatus.getGroupNumber(), "Unknown"))))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(39, String.format("Control Method: %s ", groupStatus.getControlMethod())))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20, String.format("Temperature: %d°C ", groupStatus.getCurrentTemperature())))
-						.fg(YELLOW).a("║").reset()
-						);
-				System.out.println(ansi()
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20, ""))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20, String.format("Damper Open: %d%% ", groupStatus.getOpenPercentage())))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(19, String.format("Power state: %s ", groupStatus.getPowerstate())))
-						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20, String.format("Target temp: %s°C ", groupStatus.getTargetSetpoint())))
-						.fg(YELLOW).a("║").reset()
-						);
-
-			}
-
-			System.out.println(ansi()
-					.fg(YELLOW)
-					.a("╠══════════════════════════════════════════════════════════════════════════════╣")
-					.reset()
-					);
-
-			System.out.println(ansi()
-					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(79, "Commands: Q - Quit, G - Group Target Temp "))
-					.fg(YELLOW).a("║").reset()
-					);
-			System.out.println(ansi()
-					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(79, "Press a letter: "))
-					.fg(YELLOW).a("║").reset()
-					);
-			System.out.println(ansi()
-					.fg(YELLOW)
-					.a("╚══════════════════════════════════════════════════════════════════════════════╝")
-					.reset()
-					);
-		}
-
-		private String leftPaddedBox(int width, String inputString) {
-			return String.format(" %1$-" + (width -2) + "s", inputString);
-		}
-
-		private String rightPaddedBox(int width, String inputString) {
-			return String.format(" %1$" + (width -2) + "s", inputString);
-		}
-
 	}
 
 }
