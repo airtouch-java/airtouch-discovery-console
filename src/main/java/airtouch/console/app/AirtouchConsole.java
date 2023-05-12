@@ -6,6 +6,7 @@ import static org.jline.builtins.Completers.TreeCompleter.node;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.fusesource.jansi.AnsiConsole;
 import org.jline.builtins.Completers.TreeCompleter;
@@ -32,21 +33,49 @@ import airtouch.v4.handler.GroupControlHandler;
 public class AirtouchConsole {
 
 	private final static Logger log = LoggerFactory.getLogger(AirtouchConsole.class);
+
+	private final static Pattern ipPattern = Pattern.compile("^((?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])))$");
+	private final static Pattern macPattern = Pattern.compile("^([0-9a-f][0-9a-f]([:-])[0-9a-f][0-9a-f](\\2[0-9a-f][0-9a-f]){4,8})$");
+
+	private String hostName = System.getenv("AIRTOUCH_HOST");
+	private int portNumber = 9004;
 	private boolean running = true;
 	private AirTouchStatusUpdater airTouchStatusUpdater;
+	private int secondsSinceStarted = 0;
+	private AirtouchBroadcaster broadcaster;
+
+	private AirtouchService service;
 
 	public void begin() throws InterruptedException, IOException {
+		
+		if (this.hostName == null) {
 
-		AirtouchBroadcaster broadcaster = new AirtouchBroadcaster(new BroadcastResponseCallback() {
+			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
+			System.out.println("To specify the IP or hostname to use, set an environment variabled named AIRTOUCH_HOST");
+			broadcaster = new AirtouchBroadcaster(new BroadcastResponseCallback() {
+				
+				@Override
+				public void handleResponse(BroadcastResponse response) {
+					try {
+						System.out.println(String.format("Found '%s' at '%s' with id '%s'", 
+								response.getAirtouchVersion(),
+								response.getHostAddress(), 
+								response.getAirtouchId()));
+						startUI(response.getHostAddress(), response.getPortNumber());
+					} catch (IOException e) {
+						log.warn("failed to auto start", e);
+					}
+				}
+			});
 			
-			@Override
-			public void handleResponse(String response) {
-				log.info(response);
-			}
-		});
-		
-		broadcaster.start();
-		
+			broadcaster.start();
+		} else {
+			System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
+			startUI(hostName, portNumber);
+		}
+	}
+
+	private void startUI(String hostName, Integer portNumber) throws IOException {
 		AnsiConsole.systemInstall();
 
 		Completer completer = new TreeCompleter(
@@ -91,17 +120,16 @@ public class AirtouchConsole {
 
 		airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
 
-		AirtouchService service = new AirtouchService().confgure(null, null, airTouchStatusUpdater).start();
+		service = new AirtouchService().confgure(hostName, portNumber, airTouchStatusUpdater).start();
 		service.startHeartbeat(new HeartbeatSecondEventHandler() {
 
 			@Override
 			public void handleSecondEvent() {
-//				System.out.print(ansi()
-//						.saveCursorPosition()
-//						.eraseScreen()
-//						.cursorMove(38, 2)
-//						.a("/")
-//						.restoreCursorPosition());
+				secondsSinceStarted++;
+				
+				if (secondsSinceStarted > 30 && broadcaster != null && broadcaster.isRunning()) {
+					broadcaster.shutdown();
+				}
 			}
 		});
 
@@ -122,7 +150,6 @@ public class AirtouchConsole {
 		}
 
 		service.stop();
-
 	}
 
 	private void handleInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {

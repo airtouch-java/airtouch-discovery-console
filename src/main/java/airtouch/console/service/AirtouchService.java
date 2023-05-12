@@ -32,13 +32,15 @@ public class AirtouchService implements AirtouchResponseEventListener {
 
     private final Logger log = LoggerFactory.getLogger(AirtouchService.class);
 
-	private String hostName = System.getenv("AIRTOUCH_HOST");
-	private int portNumber = 9004;
 	private AirtouchConnector airtouchConnector;
 	private AirtouchStatusEventListener eventListener;
 	private AtomicInteger counter = new AtomicInteger(0);
 
 	private Map<Integer,Boolean> responseReceived = new HashMap<>();
+
+	private String hostName;
+
+	private Integer portNumber;
 
 
 	public AirtouchService confgure(String hostName, Integer portNumber, AirtouchStatusEventListener eventListener) {
