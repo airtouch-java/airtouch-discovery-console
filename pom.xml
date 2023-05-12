@@ -17,8 +17,8 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>airtouch.v4</groupId>
-			<artifactId>airtouch4-utils</artifactId>
+			<groupId>airtouch.utils</groupId>
+			<artifactId>airtouch-utils</artifactId>
 			<version>1.0-SNAPSHOT</version>
 		</dependency>
 		<dependency>
