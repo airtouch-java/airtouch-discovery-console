@@ -18,14 +18,15 @@ import org.jline.reader.UserInterruptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import airtouch.AirtouchVersion;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
 import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
 import airtouch.v4.constant.GroupControlConstants.GroupControl;
 import airtouch.v4.constant.GroupControlConstants.GroupPower;
 import airtouch.v4.constant.GroupControlConstants.GroupSetting;
-import airtouch.v4.discovery.AirtouchBroadcaster;
-import airtouch.v4.discovery.BroadcastResponseCallback;
+import airtouch.discovery.AirtouchBroadcaster;
+import airtouch.discovery.BroadcastResponseCallback;
 import airtouch.v4.handler.AirConditionerControlHandler;
 import airtouch.v4.handler.GroupControlHandler;
 
@@ -52,7 +53,7 @@ public class AirtouchConsole {
 
 			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
 			System.out.println("To specify the IP or hostname to use, set an environment variabled named AIRTOUCH_HOST");
-			broadcaster = new AirtouchBroadcaster(new BroadcastResponseCallback() {
+			broadcaster = new AirtouchBroadcaster(AirtouchVersion.AIRTOUCH4, new BroadcastResponseCallback() {
 				
 				@Override
 				public void handleResponse(BroadcastResponse response) {
