@@ -33,34 +33,31 @@ import airtouch.v4.handler.GroupControlHandler;
 @SuppressWarnings("java:S106") // Tell Sonar not to worry about System.out. We need to use it.
 public class AirtouchConsole {
 
-	private final static Logger log = LoggerFactory.getLogger(AirtouchConsole.class);
+	private static final Logger log = LoggerFactory.getLogger(AirtouchConsole.class);
 
-	private final static Pattern ipPattern = Pattern.compile("^((?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])))$");
-	private final static Pattern macPattern = Pattern.compile("^([0-9a-f][0-9a-f]([:-])[0-9a-f][0-9a-f](\\2[0-9a-f][0-9a-f]){4,8})$");
+	private static final Pattern IP_PATTERN = Pattern.compile("^((?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])))$");
+	private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9a-f][0-9a-f]([:-])[0-9a-f][0-9a-f](\\2[0-9a-f][0-9a-f]){4,8})$");
 
 	private String hostName = System.getenv("AIRTOUCH_HOST");
 	private int portNumber = 9004;
 	private boolean running = true;
-	private AirTouchStatusUpdater airTouchStatusUpdater;
 	private int secondsSinceStarted = 0;
 	private AirtouchBroadcaster broadcaster;
 
-	private AirtouchService service;
-
 	public void begin() throws InterruptedException, IOException {
-		
+
 		if (this.hostName == null) {
 
 			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
 			System.out.println("To specify the IP or hostname to use, set an environment variabled named AIRTOUCH_HOST");
 			broadcaster = new AirtouchBroadcaster(AirtouchVersion.AIRTOUCH4, new BroadcastResponseCallback() {
-				
+
 				@Override
 				public void handleResponse(BroadcastResponse response) {
 					try {
-						System.out.println(String.format("Found '%s' at '%s' with id '%s'", 
+						System.out.println(String.format("Found '%s' at '%s' with id '%s'",
 								response.getAirtouchVersion(),
-								response.getHostAddress(), 
+								response.getHostAddress(),
 								response.getAirtouchId()));
 						startUI(response.getHostAddress(), response.getPortNumber());
 					} catch (IOException e) {
@@ -68,7 +65,7 @@ public class AirtouchConsole {
 					}
 				}
 			});
-			
+
 			broadcaster.start();
 		} else {
 			System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
@@ -76,6 +73,7 @@ public class AirtouchConsole {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	private void startUI(String hostName, Integer portNumber) throws IOException {
 		AnsiConsole.systemInstall();
 
@@ -119,15 +117,15 @@ public class AirtouchConsole {
 		AnsiConsole.out.println(ansi().eraseScreen().fg(GREEN).a("AirTouch Console").reset());
 		System.out.println(ansi().fg(GREEN).a("Fetching Airtouch data....").reset());
 
-		airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
+		AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
 
-		service = new AirtouchService().confgure(hostName, portNumber, airTouchStatusUpdater).start();
+		AirtouchService service = new AirtouchService().confgure(hostName, portNumber, airTouchStatusUpdater).start();
 		service.startHeartbeat(new HeartbeatSecondEventHandler() {
 
 			@Override
 			public void handleSecondEvent() {
 				secondsSinceStarted++;
-				
+
 				if (secondsSinceStarted > 30 && broadcaster != null && broadcaster.isRunning()) {
 					broadcaster.shutdown();
 				}
@@ -242,7 +240,7 @@ public class AirtouchConsole {
 		switch (groupPowerStr.toLowerCase()) {
 		case "on":
 			return GroupPower.POWER_ON;
-		case "off": 
+		case "off":
 			return GroupPower.POWER_OFF;
 		case "turbo":
 			return GroupPower.TURBO_POWER;

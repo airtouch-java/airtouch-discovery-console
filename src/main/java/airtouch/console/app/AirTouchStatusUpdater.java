@@ -16,8 +16,8 @@ import airtouch.v4.model.AirConditionerStatusResponse;
 import airtouch.v4.model.GroupStatusResponse;
 
 public class AirTouchStatusUpdater implements AirtouchStatusEventListener {
-	
-	private final static Logger log = LoggerFactory.getLogger(AirTouchStatusUpdater.class);
+
+	private static final Logger log = LoggerFactory.getLogger(AirTouchStatusUpdater.class);
 
 	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
@@ -28,6 +28,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener {
 		}
 
 		@Override
+		@SuppressWarnings("java:S106") // Allow System.out.println as that is the console "UI".
 		public void eventReceived(AirtouchStatus status) {
 
 			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
@@ -108,38 +109,22 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener {
 
 			}
 
-//			System.out.println(ansi()
-//					.fg(YELLOW)
-//					.a("╠══════════════════════════════════════════════════════════════════════════════╣")
-//					.reset()
-//					);
-//
-//			System.out.println(ansi()
-//					.fg(YELLOW).a("║").reset()
-//					.a(leftPaddedBox(79, "Commands: Q - Quit, G - Group Target Temp "))
-//					.fg(YELLOW).a("║").reset()
-//					);
-//			System.out.println(ansi()
-//					.fg(YELLOW).a("║").reset()
-//					.a(leftPaddedBox(79, "Press a letter: "))
-//					.fg(YELLOW).a("║").reset()
-//					);
 			System.out.println(ansi()
 					.fg(YELLOW)
 					.a("╚══════════════════════════════════════════════════════════════════════════════╝")
 					.reset()
 					);
 			System.out.println(ansi()
-			.fg(YELLOW).a("Tab completion is enabled. Press tab at any time to show options")
+			.fg(YELLOW).a("Tab completion is enabled. Press tab at any time to show options").reset()
 			);
 		}
 
 		private String leftPaddedBox(int width, String inputString) {
-			return String.format(" %1$-" + (width -2) + "s", inputString);
+			return String.format(" %1$-" + (width -2) + "s", inputString); //NOSONAR
 		}
 
 		private String rightPaddedBox(int width, String inputString) {
-			return String.format(" %1$" + (width -2) + "s", inputString);
+			return String.format(" %1$" + (width -2) + "s", inputString); //NOSONAR
 		}
 
 	}
