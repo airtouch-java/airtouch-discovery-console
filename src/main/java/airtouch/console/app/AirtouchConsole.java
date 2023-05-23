@@ -25,8 +25,8 @@ import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
 import airtouch.v4.constant.GroupControlConstants.GroupControl;
 import airtouch.v4.constant.GroupControlConstants.GroupPower;
 import airtouch.v4.constant.GroupControlConstants.GroupSetting;
-import airtouch.discovery.AirtouchBroadcaster;
-import airtouch.discovery.BroadcastResponseCallback;
+import airtouch.discovery.AirtouchDiscoverer;
+import airtouch.discovery.AirtouchDiscoveryBroadcastResponseCallback;
 import airtouch.v4.handler.AirConditionerControlHandler;
 import airtouch.v4.handler.GroupControlHandler;
 
@@ -42,18 +42,18 @@ public class AirtouchConsole {
 	private int portNumber = 9004;
 	private boolean running = true;
 	private int secondsSinceStarted = 0;
-	private AirtouchBroadcaster broadcaster;
+	private AirtouchDiscoverer airtouchDiscoverer;
 
-	public void begin() throws InterruptedException, IOException {
+	public void begin() throws IOException {
 
 		if (this.hostName == null) {
 
 			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
 			System.out.println("To specify the IP or hostname to use, set an environment variabled named AIRTOUCH_HOST");
-			broadcaster = new AirtouchBroadcaster(AirtouchVersion.AIRTOUCH4, new BroadcastResponseCallback() {
+			airtouchDiscoverer = new AirtouchDiscoverer(AirtouchVersion.AIRTOUCH4, new AirtouchDiscoveryBroadcastResponseCallback() {
 
 				@Override
-				public void handleResponse(BroadcastResponse response) {
+				public void handleResponse(AirtouchDiscoveryBroadcastResponse response) {
 					try {
 						System.out.println(String.format("Found '%s' at '%s' with id '%s'",
 								response.getAirtouchVersion(),
@@ -66,7 +66,7 @@ public class AirtouchConsole {
 				}
 			});
 
-			broadcaster.start();
+			airtouchDiscoverer.start();
 		} else {
 			System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
 			startUI(hostName, portNumber);
@@ -126,8 +126,8 @@ public class AirtouchConsole {
 			public void handleSecondEvent() {
 				secondsSinceStarted++;
 
-				if (secondsSinceStarted > 30 && broadcaster != null && broadcaster.isRunning()) {
-					broadcaster.shutdown();
+				if (secondsSinceStarted > 30 && airtouchDiscoverer != null && airtouchDiscoverer.isRunning()) {
+					airtouchDiscoverer.shutdown();
 				}
 			}
 		});
