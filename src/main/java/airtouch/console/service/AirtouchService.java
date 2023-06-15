@@ -70,6 +70,9 @@ public class AirtouchService implements AirtouchResponseEventListener {
 
 	private void requestUpdate() throws IOException {
 		this.responseReceived.clear();
+		if (this.counter.get() >= 120) {
+			this.counter.set(0);
+		}
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
 		this.airtouchConnector.sendRequest(GroupStatusHandler.generateRequest(counter.get(), null));
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
