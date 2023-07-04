@@ -1,8 +1,8 @@
 package airtouch.console.data;
 
-import airtouch.v4.constant.AcStatusConstants.FanSpeed;
-import airtouch.v4.constant.AcStatusConstants.Mode;
-import airtouch.v4.constant.AcStatusConstants.PowerState;
+import airtouch.v4.constant.AirConditionerStatusConstants.FanSpeed;
+import airtouch.v4.constant.AirConditionerStatusConstants.Mode;
+import airtouch.v4.constant.AirConditionerStatusConstants.PowerState;
 import lombok.Data;
 
 @Data
