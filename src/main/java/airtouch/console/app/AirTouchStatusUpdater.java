@@ -123,6 +123,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener {
 			return String.format(" %1$-" + (width -2) + "s", inputString); //NOSONAR
 		}
 
+		@SuppressWarnings("unused")
 		private String rightPaddedBox(int width, String inputString) {
 			return String.format(" %1$" + (width -2) + "s", inputString); //NOSONAR
 		}

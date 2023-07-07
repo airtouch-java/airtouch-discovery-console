@@ -4,6 +4,6 @@ import airtouch.v4.Response;
 
 public interface AirtouchResponseEventListener {
 
-	public void eventReceived(Response response);
+	public void eventReceived(Response<?> response);
 
 }
