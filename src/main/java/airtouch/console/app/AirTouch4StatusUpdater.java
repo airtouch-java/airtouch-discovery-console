@@ -10,26 +10,26 @@ import org.jline.reader.LineReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import airtouch.console.data.AirtouchStatus;
+import airtouch.console.data.Airtouch4Status;
 import airtouch.console.event.AirtouchStatusEventListener;
 import airtouch.v4.model.AirConditionerStatusResponse;
 import airtouch.v4.model.GroupStatusResponse;
 
-public class AirTouchStatusUpdater implements AirtouchStatusEventListener {
+public class AirTouch4StatusUpdater implements AirtouchStatusEventListener<Airtouch4Status> {
 
-	private static final Logger log = LoggerFactory.getLogger(AirTouchStatusUpdater.class);
+	private static final Logger log = LoggerFactory.getLogger(AirTouch4StatusUpdater.class);
 
 	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
 
 		LineReader reader;
-		public AirTouchStatusUpdater(LineReader reader) {
+		public AirTouch4StatusUpdater(LineReader reader) {
 			this.reader = reader;
 		}
 
 		@Override
 		@SuppressWarnings("java:S106") // Allow System.out.println as that is the console "UI".
-		public void eventReceived(AirtouchStatus status) {
+		public void eventReceived(Airtouch4Status status) {
 
 			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
 				log.debug("UI updates paused. User input field is not blank.");

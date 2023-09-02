@@ -21,12 +21,14 @@ import org.slf4j.LoggerFactory;
 import airtouch.AirtouchVersion;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
+import airtouch.console.service.Airtouch4Service;
 import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
 import airtouch.v4.constant.GroupControlConstants.GroupControl;
 import airtouch.v4.constant.GroupControlConstants.GroupPower;
 import airtouch.v4.constant.GroupControlConstants.GroupSetting;
 import airtouch.discovery.AirtouchDiscoverer;
 import airtouch.discovery.AirtouchDiscoveryBroadcastResponseCallback;
+import airtouch.exception.AirtouchMessagingException;
 import airtouch.v4.handler.AirConditionerControlHandler;
 import airtouch.v4.handler.GroupControlHandler;
 
@@ -39,19 +41,21 @@ public class AirtouchConsole {
 	private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9a-f][0-9a-f]([:-])[0-9a-f][0-9a-f](\\2[0-9a-f][0-9a-f]){4,8})$");
 
 	private String hostName = System.getenv("AIRTOUCH_HOST");
-	private int portNumber = 9004;
+	private int airTouch4PortNumber = 9004;
+	private int airTouch5PortNumber = 9005;
 	private boolean running = true;
 	private int secondsSinceStarted = 0;
-	private AirtouchDiscoverer airtouchDiscoverer;
+	private AirtouchDiscoverer airtouch4Discoverer;
+	private AirtouchDiscoverer airtouch5Discoverer;
 
 	public void begin() throws IOException {
 
 		if (this.hostName == null) {
 
 			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
+			System.out.println("Depending on your network, this might take a few minutes to discover.");
 			System.out.println("To specify the IP or hostname to use, set an environment variabled named AIRTOUCH_HOST");
-			airtouchDiscoverer = new AirtouchDiscoverer(AirtouchVersion.AIRTOUCH4, new AirtouchDiscoveryBroadcastResponseCallback() {
-
+			airtouch4Discoverer = new AirtouchDiscoverer(AirtouchVersion.AIRTOUCH4, new AirtouchDiscoveryBroadcastResponseCallback() {
 				@Override
 				public void handleResponse(AirtouchDiscoveryBroadcastResponse response) {
 					try {
@@ -59,22 +63,47 @@ public class AirtouchConsole {
 								response.getAirtouchVersion(),
 								response.getHostAddress(),
 								response.getAirtouchId()));
-						startUI(response.getHostAddress(), response.getPortNumber());
+						startUI(AirtouchVersion.AIRTOUCH4, response.getHostAddress(), response.getPortNumber());
 					} catch (IOException e) {
 						log.warn("failed to auto start", e);
 					}
 				}
 			});
-
-			airtouchDiscoverer.start();
+			airtouch4Discoverer.start();
+			
+			airtouch5Discoverer = new AirtouchDiscoverer(AirtouchVersion.AIRTOUCH5, new AirtouchDiscoveryBroadcastResponseCallback() {
+				@Override
+				public void handleResponse(AirtouchDiscoveryBroadcastResponse response) {
+					try {
+						System.out.println(String.format("Found '%s' at '%s' with id '%s'",
+								response.getAirtouchVersion(),
+								response.getHostAddress(),
+								response.getAirtouchId()));
+						startUI(AirtouchVersion.AIRTOUCH5, response.getHostAddress(), response.getPortNumber());
+					} catch (IOException e) {
+						log.warn("failed to auto start", e);
+					}
+				}
+			});
+			airtouch5Discoverer.start();
 		} else {
-			System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
-			startUI(hostName, portNumber);
+			try {
+				startUI(AirtouchVersion.AIRTOUCH5, hostName, airTouch5PortNumber);
+				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
+			} catch (IOException | AirtouchMessagingException e) {
+				System.out.println("Failed to start Airtouch5. Trying Airtouch4");
+			}
+			try {
+				startUI(AirtouchVersion.AIRTOUCH4, hostName, airTouch4PortNumber);
+				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
+			} catch (IOException e) {
+				System.out.println("Failed to start Airtouch4. :-(");
+			}
 		}
 	}
 
 	@SuppressWarnings("deprecation")
-	private void startUI(String hostName, Integer portNumber) throws IOException {
+	private void startUI(AirtouchVersion airtouchVersion, String hostName, Integer portNumber) throws IOException {
 		AnsiConsole.systemInstall();
 
 		Completer completer = new TreeCompleter(
@@ -88,7 +117,7 @@ public class AirtouchConsole {
 						)
 					)
 				),
-				node("group",
+				node("zone",
 					node("0", "1", "2", "3",
 						node("target-temp",
 							node("20","21","22","23","24","25") // TODO, this should be the valid temps as determined by AcStatus
@@ -117,17 +146,17 @@ public class AirtouchConsole {
 		AnsiConsole.out.println(ansi().eraseScreen().fg(GREEN).a("AirTouch Console").reset());
 		System.out.println(ansi().fg(GREEN).a("Fetching Airtouch data....").reset());
 
-		AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
+		AirTouch4StatusUpdater airTouchStatusUpdater = new AirTouch4StatusUpdater(reader);
 
-		AirtouchService service = new AirtouchService().confgure(hostName, portNumber, airTouchStatusUpdater).start();
+		AirtouchService service = new Airtouch4Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
 		service.startHeartbeat(new HeartbeatSecondEventHandler() {
 
 			@Override
 			public void handleSecondEvent() {
 				secondsSinceStarted++;
 
-				if (secondsSinceStarted > 30 && airtouchDiscoverer != null && airtouchDiscoverer.isRunning()) {
-					airtouchDiscoverer.shutdown();
+				if (secondsSinceStarted > 30 && airtouch4Discoverer != null && airtouch4Discoverer.isRunning()) {
+					airtouch4Discoverer.shutdown();
 				}
 			}
 		});

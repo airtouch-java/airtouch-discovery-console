@@ -2,8 +2,8 @@ package airtouch.console.event;
 
 import airtouch.console.data.AirtouchStatus;
 
-public interface AirtouchStatusEventListener {
+public interface AirtouchStatusEventListener<T extends AirtouchStatus> {
 
-	public void eventReceived(AirtouchStatus status);
+	public void eventReceived(T status);
 
 }

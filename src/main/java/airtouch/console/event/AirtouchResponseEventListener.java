@@ -1,9 +1,9 @@
 package airtouch.console.event;
 
-import airtouch.v4.Response;
+import airtouch.Response;
 
-public interface AirtouchResponseEventListener {
+public interface AirtouchResponseEventListener<T> {
 
-	public void eventReceived(Response<?> response);
+	public void eventReceived(Response<?,T> response);
 
 }
