@@ -14,12 +14,12 @@ import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatMinuteEventHand
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.Response;
 import airtouch.console.data.Airtouch4Status;
-import airtouch.console.data.Airtouch5Status;
 import airtouch.console.event.AirtouchResponseEventListener;
 import airtouch.console.event.AirtouchStatusEventListener;
 import airtouch.Request;
 import airtouch.ResponseCallback;
 import airtouch.v4.connector.AirtouchConnector;
+import airtouch.v4.constant.MessageConstants;
 import airtouch.v4.constant.MessageConstants.MessageType;
 import airtouch.v4.handler.AirConditionerAbilityHandler;
 import airtouch.v4.handler.AirConditionerStatusHandler;
@@ -32,7 +32,7 @@ import airtouch.v4.model.ConsoleVersionResponse;
 import airtouch.v4.model.GroupNameResponse;
 import airtouch.v4.model.GroupStatusResponse;
 
-public class Airtouch4Service implements AirtouchService<MessageType>, AirtouchResponseEventListener<MessageType> {
+public class Airtouch4Service implements AirtouchService<MessageType, MessageConstants.Address>, AirtouchResponseEventListener<MessageType> {
 
     private final Logger log = LoggerFactory.getLogger(Airtouch4Service.class);
 
@@ -124,7 +124,7 @@ public class Airtouch4Service implements AirtouchService<MessageType>, AirtouchR
 		return this.counter.incrementAndGet();
 	}
 
-	public void sendRequest(Request<MessageType> request) throws IOException {
+	public void sendRequest(Request<MessageType, MessageConstants.Address> request) throws IOException {
 		this.airtouchConnector.sendRequest(request);
 	}
 
@@ -135,7 +135,7 @@ public class Airtouch4Service implements AirtouchService<MessageType>, AirtouchR
 	}
 
 	@SuppressWarnings({ "unchecked"})
-	public void eventReceived(Response<?,MessageType> response) {
+	public void eventReceived(Response<MessageType> response) {
 
 		switch (response.getMessageType()) {
 		case AC_STATUS:

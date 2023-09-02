@@ -19,6 +19,7 @@ import airtouch.console.event.AirtouchStatusEventListener;
 import airtouch.Request;
 import airtouch.ResponseCallback;
 import airtouch.v5.connector.AirtouchConnector;
+import airtouch.v5.constant.MessageConstants;
 import airtouch.v5.constant.MessageConstants.MessageType;
 import airtouch.v5.handler.AirConditionerAbilityHandler;
 import airtouch.v5.handler.AirConditionerStatusHandler;
@@ -31,7 +32,7 @@ import airtouch.v5.model.ConsoleVersionResponse;
 import airtouch.v5.model.ZoneNameResponse;
 import airtouch.v5.model.ZoneStatusResponse;
 
-public class Airtouch5Service implements AirtouchService<MessageType>, AirtouchResponseEventListener<MessageType> {
+public class Airtouch5Service implements AirtouchService<MessageType, MessageConstants.Address>, AirtouchResponseEventListener<MessageType> {
 
     private final Logger log = LoggerFactory.getLogger(Airtouch5Service.class);
 
@@ -57,7 +58,7 @@ public class Airtouch5Service implements AirtouchService<MessageType>, AirtouchR
 		return this;
 	}
 
-	public Airtouch5Service start() throws IOException {
+	public AirtouchService start() throws IOException {
 
 		this.airtouchConnector = new AirtouchConnector(this.hostName, this.portNumber, new ResponseCallback() {
 			@SuppressWarnings("rawtypes")
@@ -81,7 +82,7 @@ public class Airtouch5Service implements AirtouchService<MessageType>, AirtouchR
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
 		this.airtouchConnector.sendRequest(ZoneNameHandler.generateRequest(counter.get(), null));
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
-		this.airtouchConnector.sendRequest(AirConditionerStatusHandler.generateRequest(counter.get(), null));
+		this.airtouchConnector.sendRequest(AirConditionerStatusHandler.generateRequest(counter.get()));
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
 		this.airtouchConnector.sendRequest(ConsoleVersionHandler.generateRequest(counter.get()));
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
@@ -123,31 +124,31 @@ public class Airtouch5Service implements AirtouchService<MessageType>, AirtouchR
 		return this.counter.incrementAndGet();
 	}
 
-	public void sendRequest(Request<MessageType> request) throws IOException {
+	public void sendRequest(Request<MessageType, MessageConstants.Address> request) throws IOException {
 		this.airtouchConnector.sendRequest(request);
 	}
 
-	private Airtouch4Status status = new Airtouch4Status();
+	private Airtouch5Status status = new Airtouch5Status();
 
-	public Airtouch4Status getStatus() {
+	public Airtouch5Status getStatus() {
 		return status;
 	}
 
 	@SuppressWarnings({ "unchecked"})
-	public void eventReceived(Response<?,MessageType> response) {
+	public void eventReceived(Response<MessageType> response) {
 
 		switch (response.getMessageType()) {
 		case AC_STATUS:
 			status.setAcStatuses((List<AirConditionerStatusResponse>) response.getData());
 			break;
-		case GROUP_STATUS:
-			status.setGroupStatuses((List<GroupStatusResponse>) response.getData());
+		case ZONE_STATUS:
+			status.setZoneStatuses((List<ZoneStatusResponse>) response.getData());
 			break;
-		case GROUP_NAME:
-			status.setGroupNames(
-					((List<GroupNameResponse>) response.getData())
+		case ZONE_NAME:
+			status.setZoneNames(
+					((List<ZoneNameResponse>) response.getData())
 					.stream()
-					.collect(Collectors.toMap(GroupNameResponse::getGroupNumber, GroupNameResponse::getName)));
+					.collect(Collectors.toMap(ZoneNameResponse::getZoneNumber, ZoneNameResponse::getName)));
 			break;
 		case AC_ABILITY:
 			status.setAcAbilities(
@@ -164,7 +165,7 @@ public class Airtouch5Service implements AirtouchService<MessageType>, AirtouchR
 			break;
 		case EXTENDED:
 			break;
-		case GROUP_CONTROL:
+		case CONTROL_OR_STATUS:
 			break;
 		default:
 			break;

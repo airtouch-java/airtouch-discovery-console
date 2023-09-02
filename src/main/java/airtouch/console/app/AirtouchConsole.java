@@ -22,6 +22,7 @@ import airtouch.AirtouchVersion;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
 import airtouch.console.service.Airtouch4Service;
+import airtouch.console.service.Airtouch5Service;
 import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
 import airtouch.v4.constant.GroupControlConstants.GroupControl;
 import airtouch.v4.constant.GroupControlConstants.GroupPower;
@@ -70,7 +71,7 @@ public class AirtouchConsole {
 				}
 			});
 			airtouch4Discoverer.start();
-			
+
 			airtouch5Discoverer = new AirtouchDiscoverer(AirtouchVersion.AIRTOUCH5, new AirtouchDiscoveryBroadcastResponseCallback() {
 				@Override
 				public void handleResponse(AirtouchDiscoveryBroadcastResponse response) {
@@ -88,14 +89,14 @@ public class AirtouchConsole {
 			airtouch5Discoverer.start();
 		} else {
 			try {
+				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch5 connection.", hostName));
 				startUI(AirtouchVersion.AIRTOUCH5, hostName, airTouch5PortNumber);
-				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
 			} catch (IOException | AirtouchMessagingException e) {
 				System.out.println("Failed to start Airtouch5. Trying Airtouch4");
 			}
 			try {
+				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch4 connection.", hostName));
 				startUI(AirtouchVersion.AIRTOUCH4, hostName, airTouch4PortNumber);
-				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch connection.", hostName));
 			} catch (IOException e) {
 				System.out.println("Failed to start Airtouch4. :-(");
 			}
@@ -146,20 +147,42 @@ public class AirtouchConsole {
 		AnsiConsole.out.println(ansi().eraseScreen().fg(GREEN).a("AirTouch Console").reset());
 		System.out.println(ansi().fg(GREEN).a("Fetching Airtouch data....").reset());
 
-		AirTouch4StatusUpdater airTouchStatusUpdater = new AirTouch4StatusUpdater(reader);
+		AirtouchService service = null;
 
-		AirtouchService service = new Airtouch4Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
-		service.startHeartbeat(new HeartbeatSecondEventHandler() {
+		if (AirtouchVersion.AIRTOUCH4.equals(airtouchVersion)) {
+			AirTouch4StatusUpdater airTouchStatusUpdater = new AirTouch4StatusUpdater(reader);
 
-			@Override
-			public void handleSecondEvent() {
-				secondsSinceStarted++;
+			service = new Airtouch4Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
+			service.startHeartbeat(new HeartbeatSecondEventHandler() {
 
-				if (secondsSinceStarted > 30 && airtouch4Discoverer != null && airtouch4Discoverer.isRunning()) {
-					airtouch4Discoverer.shutdown();
+				@Override
+				public void handleSecondEvent() {
+					secondsSinceStarted++;
+
+					if (secondsSinceStarted > 30 && airtouch4Discoverer != null && airtouch4Discoverer.isRunning()) {
+						airtouch4Discoverer.shutdown();
+					}
 				}
-			}
-		});
+			});
+		} else if (AirtouchVersion.AIRTOUCH5.equals(airtouchVersion)) {
+			AirTouch5StatusUpdater airTouchStatusUpdater = new AirTouch5StatusUpdater(reader);
+
+			service = new Airtouch5Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
+			service.startHeartbeat(new HeartbeatSecondEventHandler() {
+
+				@Override
+				public void handleSecondEvent() {
+					secondsSinceStarted++;
+
+					if (secondsSinceStarted > 30 && airtouch5Discoverer != null && airtouch5Discoverer.isRunning()) {
+						airtouch5Discoverer.shutdown();
+					}
+				}
+			});
+
+		} else {
+
+		}
 
 
 		while (running) {
@@ -180,7 +203,7 @@ public class AirtouchConsole {
 		service.stop();
 	}
 
-	private void handleInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
+	private void handleInput(AirtouchService<?,?> service, List<String> list) throws NumberFormatException, IOException {
 		switch(list.get(0).toLowerCase()) {
 		case "quit":
 			this.running = false;
@@ -195,7 +218,7 @@ public class AirtouchConsole {
 		}
 	}
 
-	private void handleGroupInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
+	private void handleGroupInput(AirtouchService<?,?> service, List<String> list) throws NumberFormatException, IOException {
 		// group 0/1/2/3 target-temp temp
 		// group 0/1/2/3 power on/off
 		// group 0/1/2/3 control temperature/percentage
