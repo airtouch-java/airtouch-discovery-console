@@ -42,8 +42,6 @@ public class AirtouchConsole {
 	private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9a-f][0-9a-f]([:-])[0-9a-f][0-9a-f](\\2[0-9a-f][0-9a-f]){4,8})$");
 
 	private String hostName = System.getenv("AIRTOUCH_HOST");
-	private int airTouch4PortNumber = 9004;
-	private int airTouch5PortNumber = 9005;
 	private boolean running = true;
 	private int secondsSinceStarted = 0;
 	private AirtouchDiscoverer airtouch4Discoverer;
@@ -90,13 +88,13 @@ public class AirtouchConsole {
 		} else {
 			try {
 				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch5 connection.", hostName));
-				startUI(AirtouchVersion.AIRTOUCH5, hostName, airTouch5PortNumber);
+				startUI(AirtouchVersion.AIRTOUCH5, hostName, AirtouchVersion.AIRTOUCH5.getListeningPort());
 			} catch (IOException | AirtouchMessagingException e) {
 				System.out.println("Failed to start Airtouch5. Trying Airtouch4");
 			}
 			try {
 				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch4 connection.", hostName));
-				startUI(AirtouchVersion.AIRTOUCH4, hostName, airTouch4PortNumber);
+				startUI(AirtouchVersion.AIRTOUCH4, hostName, AirtouchVersion.AIRTOUCH4.getListeningPort());
 			} catch (IOException e) {
 				System.out.println("Failed to start Airtouch4. :-(");
 			}
