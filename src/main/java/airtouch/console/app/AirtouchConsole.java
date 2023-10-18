@@ -87,16 +87,18 @@ public class AirtouchConsole {
 			airtouch5Discoverer.start();
 		} else {
 			try {
-				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch5 connection.", hostName));
+				System.out.println(String.format("Attempting to connect to host '%s' for Airtouch5 connection.", hostName));
 				startUI(AirtouchVersion.AIRTOUCH5, hostName, AirtouchVersion.AIRTOUCH5.getListeningPort());
 			} catch (IOException | AirtouchMessagingException e) {
 				System.out.println("Failed to start Airtouch5. Trying Airtouch4");
+				log.debug("Failed to start Airtouch5. Trying Airtouch4", e);
 			}
 			try {
-				System.out.println(String.format("Attmpting to connect to host '%s' for Airtouch4 connection.", hostName));
+				System.out.println(String.format("Attempting to connect to host '%s' for Airtouch4 connection.", hostName));
 				startUI(AirtouchVersion.AIRTOUCH4, hostName, AirtouchVersion.AIRTOUCH4.getListeningPort());
-			} catch (IOException e) {
-				System.out.println("Failed to start Airtouch4. :-(");
+			} catch (IOException | AirtouchMessagingException e) {
+				System.out.println("Failed to start Airtouch4. Giving up.  :-(     See log for more details");
+				log.debug("Failed to start Airtouch4. ", e);
 			}
 		}
 	}
@@ -179,7 +181,9 @@ public class AirtouchConsole {
 			});
 
 		} else {
-
+			log.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Don't know the version yet");
+			log.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Don't know the version yet");
+			log.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Don't know the version yet");
 		}
 
 
@@ -201,7 +205,7 @@ public class AirtouchConsole {
 		service.stop();
 	}
 
-	private void handleInput(AirtouchService<?,?> service, List<String> list) throws NumberFormatException, IOException {
+	private void handleInput(AirtouchService<?> service, List<String> list) throws NumberFormatException, IOException {
 		switch(list.get(0).toLowerCase()) {
 		case "quit":
 			this.running = false;
@@ -216,7 +220,7 @@ public class AirtouchConsole {
 		}
 	}
 
-	private void handleGroupInput(AirtouchService<?,?> service, List<String> list) throws NumberFormatException, IOException {
+	private void handleGroupInput(AirtouchService<?> service, List<String> list) throws NumberFormatException, IOException {
 		// group 0/1/2/3 target-temp temp
 		// group 0/1/2/3 power on/off
 		// group 0/1/2/3 control temperature/percentage

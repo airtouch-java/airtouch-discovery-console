@@ -20,7 +20,7 @@ import airtouch.Request;
 import airtouch.ResponseCallback;
 import airtouch.v5.connector.AirtouchConnector;
 import airtouch.v5.constant.MessageConstants;
-import airtouch.v5.constant.MessageConstants.MessageType;
+import airtouch.v5.constant.MessageConstants.Address;
 import airtouch.v5.handler.AirConditionerAbilityHandler;
 import airtouch.v5.handler.AirConditionerStatusHandler;
 import airtouch.v5.handler.ConsoleVersionHandler;
@@ -32,7 +32,7 @@ import airtouch.v5.model.ConsoleVersionResponse;
 import airtouch.v5.model.ZoneNameResponse;
 import airtouch.v5.model.ZoneStatusResponse;
 
-public class Airtouch5Service implements AirtouchService<MessageType, MessageConstants.Address>, AirtouchResponseEventListener<MessageType> {
+public class Airtouch5Service implements AirtouchService<MessageConstants.Address>, AirtouchResponseEventListener {
 
     private final Logger log = LoggerFactory.getLogger(Airtouch5Service.class);
 
@@ -58,10 +58,9 @@ public class Airtouch5Service implements AirtouchService<MessageType, MessageCon
 		return this;
 	}
 
-	public AirtouchService start() throws IOException {
+	public AirtouchService<Address> start() throws IOException {
 
 		this.airtouchConnector = new AirtouchConnector(this.hostName, this.portNumber, new ResponseCallback() {
-			@SuppressWarnings("rawtypes")
 			public void handleResponse(Response response) {
 				eventReceived(response);
 			}
@@ -124,7 +123,7 @@ public class Airtouch5Service implements AirtouchService<MessageType, MessageCon
 		return this.counter.incrementAndGet();
 	}
 
-	public void sendRequest(Request<MessageType, MessageConstants.Address> request) throws IOException {
+	public void sendRequest(Request<MessageConstants.Address> request) throws IOException {
 		this.airtouchConnector.sendRequest(request);
 	}
 
@@ -135,37 +134,37 @@ public class Airtouch5Service implements AirtouchService<MessageType, MessageCon
 	}
 
 	@SuppressWarnings({ "unchecked"})
-	public void eventReceived(Response<MessageType> response) {
+	public void eventReceived(Response response) {
 
 		switch (response.getMessageType()) {
-		case AC_STATUS:
+		case "AC_STATUS":
 			status.setAcStatuses((List<AirConditionerStatusResponse>) response.getData());
 			break;
-		case ZONE_STATUS:
+		case "ZONE_STATUS":
 			status.setZoneStatuses((List<ZoneStatusResponse>) response.getData());
 			break;
-		case ZONE_NAME:
+		case "ZONE_NAME":
 			status.setZoneNames(
 					((List<ZoneNameResponse>) response.getData())
 					.stream()
 					.collect(Collectors.toMap(ZoneNameResponse::getZoneNumber, ZoneNameResponse::getName)));
 			break;
-		case AC_ABILITY:
+		case "AC_ABILITY":
 			status.setAcAbilities(
 					((List<AirConditionerAbilityResponse>) response.getData())
 					.stream()
 					.collect(Collectors.toMap(AirConditionerAbilityResponse::getAcNumber, r -> r))
 					);
 			break;
-		case CONSOLE_VERSION:
+		case "CONSOLE_VERSION":
 			status.setConsoleVersion((ConsoleVersionResponse) response.getData()
 					.stream()
 					.findFirst()
 					.orElse(null));
 			break;
-		case EXTENDED:
+		case "EXTENDED":
 			break;
-		case CONTROL_OR_STATUS:
+		case "CONTROL_OR_STATUS":
 			break;
 		default:
 			break;

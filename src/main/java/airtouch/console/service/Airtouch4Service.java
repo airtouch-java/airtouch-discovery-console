@@ -10,17 +10,16 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatMinuteEventHandler;
-import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
+import airtouch.Request;
 import airtouch.Response;
+import airtouch.ResponseCallback;
 import airtouch.console.data.Airtouch4Status;
 import airtouch.console.event.AirtouchResponseEventListener;
 import airtouch.console.event.AirtouchStatusEventListener;
-import airtouch.Request;
-import airtouch.ResponseCallback;
+import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatMinuteEventHandler;
+import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.v4.connector.AirtouchConnector;
 import airtouch.v4.constant.MessageConstants;
-import airtouch.v4.constant.MessageConstants.MessageType;
 import airtouch.v4.handler.AirConditionerAbilityHandler;
 import airtouch.v4.handler.AirConditionerStatusHandler;
 import airtouch.v4.handler.ConsoleVersionHandler;
@@ -32,7 +31,7 @@ import airtouch.v4.model.ConsoleVersionResponse;
 import airtouch.v4.model.GroupNameResponse;
 import airtouch.v4.model.GroupStatusResponse;
 
-public class Airtouch4Service implements AirtouchService<MessageType, MessageConstants.Address>, AirtouchResponseEventListener<MessageType> {
+public class Airtouch4Service implements AirtouchService<MessageConstants.Address>, AirtouchResponseEventListener {
 
     private final Logger log = LoggerFactory.getLogger(Airtouch4Service.class);
 
@@ -61,7 +60,6 @@ public class Airtouch4Service implements AirtouchService<MessageType, MessageCon
 	public Airtouch4Service start() throws IOException {
 
 		this.airtouchConnector = new AirtouchConnector(this.hostName, this.portNumber, new ResponseCallback() {
-			@SuppressWarnings("rawtypes")
 			public void handleResponse(Response response) {
 				eventReceived(response);
 			}
@@ -124,7 +122,7 @@ public class Airtouch4Service implements AirtouchService<MessageType, MessageCon
 		return this.counter.incrementAndGet();
 	}
 
-	public void sendRequest(Request<MessageType, MessageConstants.Address> request) throws IOException {
+	public void sendRequest(Request<MessageConstants.Address> request) throws IOException {
 		this.airtouchConnector.sendRequest(request);
 	}
 
@@ -135,37 +133,37 @@ public class Airtouch4Service implements AirtouchService<MessageType, MessageCon
 	}
 
 	@SuppressWarnings({ "unchecked"})
-	public void eventReceived(Response<MessageType> response) {
+	public void eventReceived(Response response) {
 
 		switch (response.getMessageType()) {
-		case AC_STATUS:
+		case "AC_STATUS":
 			status.setAcStatuses((List<AirConditionerStatusResponse>) response.getData());
 			break;
-		case GROUP_STATUS:
+		case "GROUP_STATUS":
 			status.setGroupStatuses((List<GroupStatusResponse>) response.getData());
 			break;
-		case GROUP_NAME:
+		case "GROUP_NAME":
 			status.setGroupNames(
 					((List<GroupNameResponse>) response.getData())
 					.stream()
 					.collect(Collectors.toMap(GroupNameResponse::getGroupNumber, GroupNameResponse::getName)));
 			break;
-		case AC_ABILITY:
+		case "AC_ABILITY":
 			status.setAcAbilities(
 					((List<AirConditionerAbilityResponse>) response.getData())
 					.stream()
 					.collect(Collectors.toMap(AirConditionerAbilityResponse::getAcNumber, r -> r))
 					);
 			break;
-		case CONSOLE_VERSION:
+		case "CONSOLE_VERSION":
 			status.setConsoleVersion((ConsoleVersionResponse) response.getData()
 					.stream()
 					.findFirst()
 					.orElse(null));
 			break;
-		case EXTENDED:
+		case "EXTENDED":
 			break;
-		case GROUP_CONTROL:
+		case "GROUP_CONTROL":
 			break;
 		default:
 			break;
