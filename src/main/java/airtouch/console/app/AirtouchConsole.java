@@ -49,6 +49,8 @@ public class AirtouchConsole {
 
 	public void begin() throws IOException {
 
+		AnsiConsole.systemInstall();
+		LineReader reader = initialiseCompleter();
 		if (this.hostName == null) {
 
 			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
@@ -62,7 +64,7 @@ public class AirtouchConsole {
 								response.getAirtouchVersion(),
 								response.getHostAddress(),
 								response.getAirtouchId()));
-						startUI(AirtouchVersion.AIRTOUCH4, response.getHostAddress(), response.getPortNumber());
+						startUI(reader, AirtouchVersion.AIRTOUCH4, response.getHostAddress(), response.getPortNumber());
 					} catch (IOException e) {
 						log.warn("failed to auto start", e);
 					}
@@ -78,7 +80,7 @@ public class AirtouchConsole {
 								response.getAirtouchVersion(),
 								response.getHostAddress(),
 								response.getAirtouchId()));
-						startUI(AirtouchVersion.AIRTOUCH5, response.getHostAddress(), response.getPortNumber());
+						startUI(reader, AirtouchVersion.AIRTOUCH5, response.getHostAddress(), response.getPortNumber());
 					} catch (IOException e) {
 						log.warn("failed to auto start", e);
 					}
@@ -88,14 +90,14 @@ public class AirtouchConsole {
 		} else {
 			try {
 				System.out.println(String.format("Attempting to connect to host '%s' for Airtouch5 connection.", hostName));
-				startUI(AirtouchVersion.AIRTOUCH5, hostName, AirtouchVersion.AIRTOUCH5.getListeningPort());
+				startUI(reader, AirtouchVersion.AIRTOUCH5, hostName, AirtouchVersion.AIRTOUCH5.getListeningPort());
 			} catch (IOException | AirtouchMessagingException e) {
 				System.out.println("Failed to start Airtouch5. Trying Airtouch4");
 				log.debug("Failed to start Airtouch5. Trying Airtouch4", e);
 			}
 			try {
 				System.out.println(String.format("Attempting to connect to host '%s' for Airtouch4 connection.", hostName));
-				startUI(AirtouchVersion.AIRTOUCH4, hostName, AirtouchVersion.AIRTOUCH4.getListeningPort());
+				startUI(reader, AirtouchVersion.AIRTOUCH4, hostName, AirtouchVersion.AIRTOUCH4.getListeningPort());
 			} catch (IOException | AirtouchMessagingException e) {
 				System.out.println("Failed to start Airtouch4. Giving up.  :-(     See log for more details");
 				log.debug("Failed to start Airtouch4. ", e);
@@ -104,43 +106,8 @@ public class AirtouchConsole {
 	}
 
 	@SuppressWarnings("deprecation")
-	private void startUI(AirtouchVersion airtouchVersion, String hostName, Integer portNumber) throws IOException {
-		AnsiConsole.systemInstall();
+	private void startUI(LineReader reader, AirtouchVersion airtouchVersion, String hostName, Integer portNumber) throws IOException {
 
-		Completer completer = new TreeCompleter(
-				node("ac",
-					node("0", "1", "2", "3",
-						node("power",
-							node("on", "off")
-						),
-						node("mode",
-							node("cool", "heat")
-						)
-					)
-				),
-				node("zone",
-					node("0", "1", "2", "3",
-						node("target-temp",
-							node("20","21","22","23","24","25") // TODO, this should be the valid temps as determined by AcStatus
-						),
-						node("open-percentage",
-							node("0", "5", "10", "15", "20", "25", "30", "35", "40", "45","50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100")
-						),
-						node("power",
-							node("on", "off", "turbo")
-						),
-						node("control",
-							node("temperature", "percentage")
-						)
-					)
-				),
-				node("quit")
-				);
-
-		LineReader reader = LineReaderBuilder
-				.builder()
-				.completer(completer)
-				.build();
 		String prompt = "";
 
 
@@ -179,11 +146,6 @@ public class AirtouchConsole {
 					}
 				}
 			});
-
-		} else {
-			log.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Don't know the version yet");
-			log.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Don't know the version yet");
-			log.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Don't know the version yet");
 		}
 
 
@@ -196,6 +158,7 @@ public class AirtouchConsole {
 				return;
 			}
 			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
+				log.debug("Words: {}", reader.getParsedLine().words());
 				handleInput(service, reader.getParsedLine().words());
 			} else {
 				System.out.println(reader.getParsedLine().words());
@@ -203,6 +166,43 @@ public class AirtouchConsole {
 		}
 
 		service.stop();
+	}
+
+	private LineReader initialiseCompleter() {
+		Completer completer = new TreeCompleter(
+				node("ac",
+					node("0", "1", "2", "3",
+						node("power",
+							node("on", "off")
+						),
+						node("mode",
+							node("cool", "heat")
+						)
+					)
+				),
+				node("zone",
+					node("0", "1", "2", "3",
+						node("target-temp",
+							node("20","21","22","23","24","25") // TODO, this should be the valid temps as determined by AcStatus
+						),
+						node("open-percentage",
+							node("0", "5", "10", "15", "20", "25", "30", "35", "40", "45","50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100")
+						),
+						node("power",
+							node("on", "off", "turbo")
+						),
+						node("control",
+							node("temperature", "percentage")
+						)
+					)
+				),
+				node("quit")
+				);
+
+		return LineReaderBuilder
+				.builder()
+				.completer(completer)
+				.build();
 	}
 
 	private void handleInput(AirtouchService<?> service, List<String> list) throws NumberFormatException, IOException {
@@ -214,16 +214,16 @@ public class AirtouchConsole {
 		case "ac":
 			handleAcInput(service, list);
 			break;
-		case "group":
+		case "zone":
 			handleGroupInput(service, list);
 			break;
 		}
 	}
 
 	private void handleGroupInput(AirtouchService<?> service, List<String> list) throws NumberFormatException, IOException {
-		// group 0/1/2/3 target-temp temp
-		// group 0/1/2/3 power on/off
-		// group 0/1/2/3 control temperature/percentage
+		// zone 0/1/2/3 target-temp temp
+		// zone 0/1/2/3 power on/off
+		// zone 0/1/2/3 control temperature/percentage
 		switch (list.get(2).toLowerCase()) {
 		case "target-temp":
 			service.sendRequest(
