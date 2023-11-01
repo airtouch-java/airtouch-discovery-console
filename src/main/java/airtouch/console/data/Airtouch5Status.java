@@ -12,7 +12,7 @@ import airtouch.v5.model.ZoneStatusResponse;
 import lombok.Data;
 
 @Data
-public class Airtouch5Status implements AirtouchStatus {
+public class Airtouch5Status {
 	private List<AirConditionerStatusResponse> acStatuses = new ArrayList<>();
 	private Map<Integer, AirConditionerAbilityResponse> acAbilities = new HashMap<>();
 	private List<ZoneStatusResponse> zoneStatuses = new ArrayList<>();

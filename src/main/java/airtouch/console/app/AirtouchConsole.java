@@ -21,8 +21,6 @@ import org.slf4j.LoggerFactory;
 import airtouch.AirtouchVersion;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
-import airtouch.console.service.Airtouch4Service;
-import airtouch.console.service.Airtouch5Service;
 import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
 import airtouch.v4.constant.GroupControlConstants.GroupControl;
 import airtouch.v4.constant.GroupControlConstants.GroupPower;
@@ -117,9 +115,9 @@ public class AirtouchConsole {
 		AirtouchService service = null;
 
 		if (AirtouchVersion.AIRTOUCH4.equals(airtouchVersion)) {
-			AirTouch4StatusUpdater airTouchStatusUpdater = new AirTouch4StatusUpdater(reader);
+			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
 
-			service = new Airtouch4Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
+			service = new AirtouchService().confgure(hostName, portNumber, airTouchStatusUpdater).start();
 			service.startHeartbeat(new HeartbeatSecondEventHandler() {
 
 				@Override
@@ -132,20 +130,20 @@ public class AirtouchConsole {
 				}
 			});
 		} else if (AirtouchVersion.AIRTOUCH5.equals(airtouchVersion)) {
-			AirTouch5StatusUpdater airTouchStatusUpdater = new AirTouch5StatusUpdater(reader);
-
-			service = new Airtouch5Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
-			service.startHeartbeat(new HeartbeatSecondEventHandler() {
-
-				@Override
-				public void handleSecondEvent() {
-					secondsSinceStarted++;
-
-					if (secondsSinceStarted > 30 && airtouch5Discoverer != null && airtouch5Discoverer.isRunning()) {
-						airtouch5Discoverer.shutdown();
-					}
-				}
-			});
+//			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
+//
+//			service = new Airtouch5Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
+//			service.startHeartbeat(new HeartbeatSecondEventHandler() {
+//
+//				@Override
+//				public void handleSecondEvent() {
+//					secondsSinceStarted++;
+//
+//					if (secondsSinceStarted > 30 && airtouch5Discoverer != null && airtouch5Discoverer.isRunning()) {
+//						airtouch5Discoverer.shutdown();
+//					}
+//				}
+//			});
 		}
 
 
@@ -205,7 +203,7 @@ public class AirtouchConsole {
 				.build();
 	}
 
-	private void handleInput(AirtouchService<?> service, List<String> list) throws NumberFormatException, IOException {
+	private void handleInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
 		switch(list.get(0).toLowerCase()) {
 		case "quit":
 			this.running = false;
@@ -215,12 +213,12 @@ public class AirtouchConsole {
 			handleAcInput(service, list);
 			break;
 		case "zone":
-			handleGroupInput(service, list);
+			handleZoneInput(service, list);
 			break;
 		}
 	}
 
-	private void handleGroupInput(AirtouchService<?> service, List<String> list) throws NumberFormatException, IOException {
+	private void handleZoneInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
 		// zone 0/1/2/3 target-temp temp
 		// zone 0/1/2/3 power on/off
 		// zone 0/1/2/3 control temperature/percentage

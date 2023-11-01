@@ -10,26 +10,26 @@ import org.jline.reader.LineReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import airtouch.console.data.Airtouch4Status;
+import airtouch.console.data.AirtouchStatus;
 import airtouch.console.event.AirtouchStatusEventListener;
-import airtouch.v4.model.AirConditionerStatusResponse;
-import airtouch.v4.model.GroupStatusResponse;
+import airtouch.model.AirConditionerStatusResponse;
+import airtouch.model.ZoneStatusResponse;
 
-public class AirTouch4StatusUpdater implements AirtouchStatusEventListener<Airtouch4Status> {
+public class AirTouchStatusUpdater implements AirtouchStatusEventListener<AirtouchStatus> {
 
-	private static final Logger log = LoggerFactory.getLogger(AirTouch4StatusUpdater.class);
+	private static final Logger log = LoggerFactory.getLogger(AirTouchStatusUpdater.class);
 
 	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
 
 		LineReader reader;
-		public AirTouch4StatusUpdater(LineReader reader) {
+		public AirTouchStatusUpdater(LineReader reader) {
 			this.reader = reader;
 		}
 
 		@Override
 		@SuppressWarnings("java:S106") // Allow System.out.println as that is the console "UI".
-		public void eventReceived(Airtouch4Status status) {
+		public void eventReceived(AirtouchStatus status) {
 
 			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
 				log.debug("UI updates paused. User input field is not blank.");
@@ -80,7 +80,7 @@ public class AirTouch4StatusUpdater implements AirtouchStatusEventListener<Airto
 						);
 
 			}
-			for ( GroupStatusResponse groupStatus :  status.getGroupStatuses()) {
+			for ( ZoneStatusResponse groupStatus :  status.getZoneStatuses()) {
 				System.out.println(ansi()
 						.fg(YELLOW)
 						.a("╠══════════════════════════════════════════════════════════════════════════════╣")
@@ -88,7 +88,7 @@ public class AirTouch4StatusUpdater implements AirtouchStatusEventListener<Airto
 						);
 				System.out.println(ansi()
 						.fg(YELLOW).a("║").reset()
-						.a(leftPaddedBox(20, String.format("Group: %d (%s) ", groupStatus.getGroupNumber(), status.getGroupNames().getOrDefault(groupStatus.getGroupNumber(), "Unknown"))))
+						.a(leftPaddedBox(20, String.format("Group: %d (%s) ", groupStatus.getZoneNumber(), status.getZoneNames().getOrDefault(groupStatus.getZoneNumber(), "Unknown"))))
 						.fg(YELLOW).a("║").reset()
 						.a(leftPaddedBox(39, String.format("Control Method: %s ", groupStatus.getControlMethod())))
 						.fg(YELLOW).a("║").reset()

@@ -6,7 +6,7 @@ import airtouch.v5.constant.AirConditionerStatusConstants.PowerState;
 import lombok.Data;
 
 @Data
-public class Airtouch5AcStatus implements AirtouchAcStatus {
+public class Airtouch5AcStatus {
 	private PowerState acPowerState;
 	private Integer acNumber;
 	private Mode acMode;
