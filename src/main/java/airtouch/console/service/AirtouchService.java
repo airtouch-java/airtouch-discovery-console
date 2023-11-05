@@ -10,43 +10,39 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import airtouch.AirtouchVersion;
 import airtouch.Request;
 import airtouch.Response;
-import airtouch.ResponseCallback;
+import airtouch.connector.AirtouchConnector;
 import airtouch.console.data.AirtouchStatus;
-import airtouch.console.event.AirtouchResponseEventListener;
 import airtouch.console.event.AirtouchStatusEventListener;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatMinuteEventHandler;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
-import airtouch.v4.connector.AirtouchConnector;
-import airtouch.v4.constant.MessageConstants;
-import airtouch.v4.handler.AirConditionerAbilityHandler;
-import airtouch.v4.handler.AirConditionerStatusHandler;
-import airtouch.v4.handler.ConsoleVersionHandler;
-import airtouch.v4.handler.GroupNameHandler;
-import airtouch.v4.handler.GroupStatusHandler;
 import airtouch.model.AirConditionerAbilityResponse;
 import airtouch.model.AirConditionerStatusResponse;
 import airtouch.model.ConsoleVersionResponse;
 import airtouch.model.ZoneNameResponse;
 import airtouch.model.ZoneStatusResponse;
 
-public class AirtouchService {
+public abstract class AirtouchService<T> {
 
     private final Logger log = LoggerFactory.getLogger(AirtouchService.class);
 
-	private AirtouchConnector airtouchConnector;
+	protected AirtouchConnector<T> airtouchConnector;
 	private AirtouchStatusEventListener<AirtouchStatus> eventListener;
-	private AtomicInteger counter = new AtomicInteger(0);
+	protected AtomicInteger counter = new AtomicInteger(0);
 
-	private Map<Integer,Boolean> responseReceived = new HashMap<>();
+	protected Map<Integer,Boolean> responseReceived = new HashMap<>();
 
-	private String hostName;
+	protected String hostName;
 
-	private Integer portNumber;
+	protected Integer portNumber;
+
+	private AirtouchVersion airtouchVersion;
 
 
-	public AirtouchService confgure(String hostName, Integer portNumber, AirtouchStatusEventListener<AirtouchStatus> eventListener) {
+	public AirtouchService<T> confgure(AirtouchVersion airtouchVersion, String hostName, Integer portNumber, AirtouchStatusEventListener<AirtouchStatus> eventListener) {
+		this.airtouchVersion = airtouchVersion;
 		if (hostName != null) {
 			this.hostName = hostName;
 		}
@@ -57,35 +53,11 @@ public class AirtouchService {
 		return this;
 	}
 
-	public AirtouchService start() throws IOException {
+	
+	
+	protected abstract void requestUpdate() throws IOException;
+	public abstract AirtouchService<T> start() throws IOException;
 
-		this.airtouchConnector = new AirtouchConnector(this.hostName, this.portNumber, new ResponseCallback() {
-			public void handleResponse(Response response) {
-				eventReceived(response);
-			}
-		});
-
-		this.airtouchConnector.start();
-		this.requestUpdate();
-		return this;
-	}
-
-	private void requestUpdate() throws IOException {
-		this.responseReceived.clear();
-		if (this.counter.get() >= 120) {
-			this.counter.set(0);
-		}
-		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
-		this.airtouchConnector.sendRequest(GroupStatusHandler.generateRequest(counter.get(), null));
-		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
-		this.airtouchConnector.sendRequest(GroupNameHandler.generateRequest(counter.get(), null));
-		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
-		this.airtouchConnector.sendRequest(AirConditionerStatusHandler.generateRequest(counter.get(), null));
-		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
-		this.airtouchConnector.sendRequest(ConsoleVersionHandler.generateRequest(counter.get()));
-		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
-		this.airtouchConnector.sendRequest(AirConditionerAbilityHandler.generateRequest(counter.get(), null));
-	}
 
 	public void startHeartbeat(HeartbeatSecondEventHandler heartbeatSecondEventHandler) throws IOException {
 		new AirtouchHeartbeatThread(
@@ -122,14 +94,18 @@ public class AirtouchService {
 		return this.counter.incrementAndGet();
 	}
 
-	public void sendRequest(Request<MessageConstants.Address> request) throws IOException {
+	public void sendRequest(Request<T> request) throws IOException {
 		this.airtouchConnector.sendRequest(request);
 	}
 
 	private AirtouchStatus status = new AirtouchStatus();
 
 	public AirtouchStatus getStatus() {
-		return status;
+		return this.status;
+	}
+	
+	public AirtouchVersion getAirtouchVersion() {
+		return this.airtouchVersion;
 	}
 
 	@SuppressWarnings({ "unchecked"})
@@ -180,5 +156,8 @@ public class AirtouchService {
 			log.debug("Not all events received yet: {}", this.responseReceived);
 		}
 	}
+
+
+
 
 }

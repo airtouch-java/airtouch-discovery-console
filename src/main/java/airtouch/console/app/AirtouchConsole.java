@@ -19,8 +19,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import airtouch.AirtouchVersion;
+import airtouch.console.service.Airtouch4Service;
+import airtouch.console.service.Airtouch5Service;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
+import airtouch.v4.constant.AirConditionerControlConstants.Mode;
 import airtouch.v4.constant.AirConditionerControlConstants.AcPower;
 import airtouch.v4.constant.GroupControlConstants.GroupControl;
 import airtouch.v4.constant.GroupControlConstants.GroupPower;
@@ -30,6 +33,7 @@ import airtouch.discovery.AirtouchDiscoveryBroadcastResponseCallback;
 import airtouch.exception.AirtouchMessagingException;
 import airtouch.v4.handler.AirConditionerControlHandler;
 import airtouch.v4.handler.GroupControlHandler;
+import airtouch.v5.constant.ZoneControlConstants.ZoneSetting;
 
 @SuppressWarnings("java:S106") // Tell Sonar not to worry about System.out. We need to use it.
 public class AirtouchConsole {
@@ -117,7 +121,7 @@ public class AirtouchConsole {
 		if (AirtouchVersion.AIRTOUCH4.equals(airtouchVersion)) {
 			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
 
-			service = new AirtouchService().confgure(hostName, portNumber, airTouchStatusUpdater).start();
+			service = new Airtouch4Service().confgure(AirtouchVersion.AIRTOUCH4, hostName, portNumber, airTouchStatusUpdater).start();
 			service.startHeartbeat(new HeartbeatSecondEventHandler() {
 
 				@Override
@@ -130,20 +134,20 @@ public class AirtouchConsole {
 				}
 			});
 		} else if (AirtouchVersion.AIRTOUCH5.equals(airtouchVersion)) {
-//			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
-//
-//			service = new Airtouch5Service().confgure(hostName, portNumber, airTouchStatusUpdater).start();
-//			service.startHeartbeat(new HeartbeatSecondEventHandler() {
-//
-//				@Override
-//				public void handleSecondEvent() {
-//					secondsSinceStarted++;
-//
-//					if (secondsSinceStarted > 30 && airtouch5Discoverer != null && airtouch5Discoverer.isRunning()) {
-//						airtouch5Discoverer.shutdown();
-//					}
-//				}
-//			});
+			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
+
+			service = new Airtouch5Service().confgure(AirtouchVersion.AIRTOUCH5, hostName, portNumber, airTouchStatusUpdater).start();
+			service.startHeartbeat(new HeartbeatSecondEventHandler() {
+
+				@Override
+				public void handleSecondEvent() {
+					secondsSinceStarted++;
+
+					if (secondsSinceStarted > 30 && airtouch5Discoverer != null && airtouch5Discoverer.isRunning()) {
+						airtouch5Discoverer.shutdown();
+					}
+				}
+			});
 		}
 
 
@@ -174,7 +178,7 @@ public class AirtouchConsole {
 							node("on", "off")
 						),
 						node("mode",
-							node("cool", "heat")
+							node("auto", "cool", "heat", "dry", "fan")
 						)
 					)
 				),
@@ -224,11 +228,19 @@ public class AirtouchConsole {
 		// zone 0/1/2/3 control temperature/percentage
 		switch (list.get(2).toLowerCase()) {
 		case "target-temp":
-			service.sendRequest(
-				GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
-				.setting(GroupSetting.SET_TARGET_SETPOINT)
-				.settingValue(determineAndValidateSettingValue(GroupSetting.SET_TARGET_SETPOINT, list.get(3)))
-				.build(service.getNextCounter()));
+			if (AirtouchVersion.AIRTOUCH4.equals(service.getAirtouchVersion())) {
+				service.sendRequest(
+					airtouch.v4.handler.GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
+					.setting(GroupSetting.SET_TARGET_SETPOINT)
+					.settingValue(determineAndValidateSettingValue(GroupSetting.SET_TARGET_SETPOINT, list.get(3)))
+					.build(service.getNextCounter()));
+			} else if (AirtouchVersion.AIRTOUCH5.equals(service.getAirtouchVersion())) {
+				service.sendRequest(
+						airtouch.v5.handler.ZoneControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
+						.setting(ZoneSetting.SET_TARGET_SETPOINT)
+						.settingValue(determineAndValidateSettingValue(ZoneSetting.SET_TARGET_SETPOINT, list.get(3)))
+						.build(service.getNextCounter()));
+			}
 			break;
 		case "open-percentage":
 			service.sendRequest(
@@ -266,6 +278,17 @@ public class AirtouchConsole {
 			throw new IllegalArgumentException("Value is outside allowable range.");
 		}
 	}
+	
+	private int determineAndValidateSettingValue(ZoneSetting zoneSetting, String settingValue) {
+		int value = Integer.valueOf(settingValue);
+		if (ZoneSetting.SET_TARGET_SETPOINT.equals(zoneSetting) && isValidTemperatureSetPoint(value)) {
+			return value;
+		} else if (ZoneSetting.SET_OPEN_PERCENTAGE.equals(zoneSetting) && isValidOpenPercentage(value)){
+			return value;
+		} else {
+			throw new IllegalArgumentException("Value is outside allowable range.");
+		}
+	}
 
 	private boolean isValidOpenPercentage(int value) {
 		return value >= 0 && value <= 100 && value % 5 == 0;
@@ -285,6 +308,13 @@ public class AirtouchConsole {
 				.acPower(determineAcPower(list.get(3)))
 				.build(service.getNextCounter()));
 			break;
+		case "mode":
+			service.sendRequest(
+					AirConditionerControlHandler.requestBuilder()
+					.acNumber(Integer.valueOf(list.get(1)))
+					.acMode(determineAcMode(list.get(3)))
+					.build(service.getNextCounter()));
+			break;
 		}
 	}
 
@@ -303,6 +333,23 @@ public class AirtouchConsole {
 
 	private AcPower determineAcPower(String acPowerStr) {
 		return "on".equalsIgnoreCase(acPowerStr) ? AcPower.POWER_ON : AcPower.POWER_OFF;
+	}
+	
+	private Mode determineAcMode(String acModeStr) {
+		switch (acModeStr.toLowerCase()) {
+		case "auto":
+			return Mode.AUTO;
+		case "cool":
+			return Mode.COOL;
+		case "dry":
+			return Mode.DRY;
+		case "fan":
+			return Mode.FAN;
+		case "heat":
+			return Mode.HEAT;
+		default:
+			return Mode.NO_CHANGE;
+		}
 	}
 
 }
