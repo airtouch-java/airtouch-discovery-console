@@ -53,8 +53,8 @@ public abstract class AirtouchService<T> {
 		return this;
 	}
 
-	
-	
+
+
 	protected abstract void requestUpdate() throws IOException;
 	public abstract AirtouchService<T> start() throws IOException;
 
@@ -103,7 +103,7 @@ public abstract class AirtouchService<T> {
 	public AirtouchStatus getStatus() {
 		return this.status;
 	}
-	
+
 	public AirtouchVersion getAirtouchVersion() {
 		return this.airtouchVersion;
 	}
@@ -122,6 +122,7 @@ public abstract class AirtouchService<T> {
 			status.setZoneNames(
 					((List<ZoneNameResponse>) response.getData())
 					.stream()
+					.map(z ->zoneRenamer(z))
 					.collect(Collectors.toMap(ZoneNameResponse::getZoneNumber, ZoneNameResponse::getName)));
 			break;
 		case AC_ABILITY:
@@ -155,6 +156,15 @@ public abstract class AirtouchService<T> {
 		} else {
 			log.debug("Not all events received yet: {}", this.responseReceived);
 		}
+	}
+
+
+
+	private ZoneNameResponse zoneRenamer(ZoneNameResponse z) {
+		if (System.getenv("ZONE_" + z.getName().toUpperCase()) != null) {
+			z.setName(System.getenv("ZONE_" + z.getName().toUpperCase()));
+		}
+		return z;
 	}
 
 

@@ -2,7 +2,6 @@ package airtouch.console.service;
 
 import java.io.IOException;
 
-import airtouch.AirtouchVersion;
 import airtouch.Response;
 import airtouch.ResponseCallback;
 import airtouch.connector.AirtouchConnector;
@@ -16,7 +15,7 @@ import airtouch.v4.handler.GroupNameHandler;
 import airtouch.v4.handler.GroupStatusHandler;
 
 public class Airtouch4Service extends AirtouchService<MessageConstants.Address> {
-	
+
 	protected void requestUpdate() throws IOException {
 		this.responseReceived.clear();
 		if (this.counter.get() >= 120) {
@@ -33,11 +32,11 @@ public class Airtouch4Service extends AirtouchService<MessageConstants.Address> 
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
 		this.airtouchConnector.sendRequest(AirConditionerAbilityHandler.generateRequest(counter.get(), null));
 	}
-	
+
 	@Override
 	public AirtouchService<MessageConstants.Address> start() throws IOException {
 
-		AirtouchConnectorThreadFactory<MessageConstants.Address> threadFactory = new Airtouch4ConnectorThreadFactory();
+		AirtouchConnectorThreadFactory threadFactory = new Airtouch4ConnectorThreadFactory();
 		this.airtouchConnector = new AirtouchConnector<MessageConstants.Address>(threadFactory, this.hostName, this.portNumber, new ResponseCallback() {
 			public void handleResponse(Response response) {
 				eventReceived(response);

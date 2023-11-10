@@ -15,7 +15,7 @@ import airtouch.v5.handler.ZoneNameHandler;
 import airtouch.v5.handler.ZoneStatusHandler;
 
 public class Airtouch5Service extends AirtouchService<MessageConstants.Address> {
-	
+
 	protected void requestUpdate() throws IOException {
 		this.responseReceived.clear();
 		if (this.counter.get() >= 120) {
@@ -32,12 +32,12 @@ public class Airtouch5Service extends AirtouchService<MessageConstants.Address> 
 		this.responseReceived.put(counter.incrementAndGet(), Boolean.FALSE);
 		this.airtouchConnector.sendRequest(AirConditionerAbilityHandler.generateRequest(counter.get(), null));
 	}
-	
-	
+
+
 	@Override
 	public AirtouchService<MessageConstants.Address> start() throws IOException {
 
-		AirtouchConnectorThreadFactory<MessageConstants.Address> threadFactory = new Airtouch5ConnectorThreadFactory();
+		AirtouchConnectorThreadFactory threadFactory = new Airtouch5ConnectorThreadFactory();
 		this.airtouchConnector = new AirtouchConnector<MessageConstants.Address>(threadFactory, this.hostName, this.portNumber, new ResponseCallback() {
 			public void handleResponse(Response response) {
 				eventReceived(response);
