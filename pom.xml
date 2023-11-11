@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>airtouch.utils</groupId>
 	<artifactId>airtouch-discovery-console</artifactId>
-	<version>0.0.2</version>
+	<version>0.0.3</version>
 	<name>AirTouch Discovery Console</name>
 	<description>A console app that attempts to discover and print information about your AirTouch instance</description>
 
