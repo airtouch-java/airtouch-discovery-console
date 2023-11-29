@@ -86,6 +86,7 @@ public class AirtouchConsole {
 								response.getAirtouchVersion(),
 								response.getHostAddress(),
 								response.getAirtouchId()));
+						stopDiscoverers();
 						startUI(reader, AirtouchVersion.AIRTOUCH5, response.getHostAddress(), response.getPortNumber());
 					} catch (IOException e) {
 						log.warn("failed to auto start", e);
