@@ -95,6 +95,7 @@ public class AirtouchConsole {
 			});
 			airtouch5Discoverer.start();
 		} else {
+			log.debug("Value for 'AIRTOUCH_HOST' found in environment. No attempts will be make to discover AirTouch. Using '{}' for connection. Attempting to connect to Airtouch units in the following order: AIRTOUCH5, AIRTOUCH4", this.hostName);
 			try {
 				System.out.println(String.format("Attempting to connect to host '%s' for Airtouch5 connection.", hostName));
 				startUI(reader, AirtouchVersion.AIRTOUCH5, hostName, AirtouchVersion.AIRTOUCH5.getListeningPort());
