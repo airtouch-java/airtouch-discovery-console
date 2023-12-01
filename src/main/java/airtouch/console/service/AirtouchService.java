@@ -1,6 +1,7 @@
 package airtouch.console.service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,9 @@ import airtouch.console.data.AirtouchStatus;
 import airtouch.console.event.AirtouchStatusEventListener;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatMinuteEventHandler;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
+import airtouch.constant.ZoneControlConstants.ZoneControl;
+import airtouch.constant.ZoneControlConstants.ZonePower;
+import airtouch.constant.ZoneControlConstants.ZoneSetting;
 import airtouch.model.AirConditionerAbilityResponse;
 import airtouch.model.AirConditionerStatusResponse;
 import airtouch.model.ConsoleVersionResponse;
@@ -29,10 +33,11 @@ public abstract class AirtouchService<T> {
     private final Logger log = LoggerFactory.getLogger(AirtouchService.class);
 
 	protected AirtouchConnector<T> airtouchConnector;
-	private AirtouchStatusEventListener<AirtouchStatus> eventListener;
+	protected AirtouchStatusEventListener<AirtouchStatus> eventListener;
 	protected AtomicInteger counter = new AtomicInteger(0);
 
 	protected Map<Integer,Boolean> responseReceived = new HashMap<>();
+	protected boolean bootStrapDone = false;
 
 	protected String hostName;
 
@@ -145,7 +150,9 @@ public abstract class AirtouchService<T> {
 		default:
 			break;
 		}
-
+		
+		status.setLastUpdate(LocalDateTime.now());
+		
 		if (this.responseReceived.containsKey(response.getMessageId())) {
 			this.responseReceived.put(response.getMessageId(), Boolean.TRUE);
 		}
@@ -153,6 +160,10 @@ public abstract class AirtouchService<T> {
 		if (!this.responseReceived.containsValue(Boolean.FALSE)) {
 			log.debug("Expected events received: {}. Sending update to listeners.", this.responseReceived);
 			this.eventListener.eventReceived(getStatus());
+			if (!bootStrapDone) {
+				bootStrapDone = true;
+				this.eventListener.bootStrapEventReceived(getStatus());
+			}
 		} else {
 			log.debug("Not all events received yet: {}", this.responseReceived);
 		}
@@ -170,4 +181,50 @@ public abstract class AirtouchService<T> {
 
 
 
+
+	protected ZoneControl determineGroupControl(String groupControlStr) {
+		return "temperature".equalsIgnoreCase(groupControlStr) ? ZoneControl.TEMPERATURE_CONTROL : ZoneControl.PERCENTAGE_CONTROL;
+	}
+
+	protected int determineAndValidateSettingValue(ZoneSetting zoneSetting, String settingValue) {
+		int value = Integer.parseInt(settingValue);
+		if (ZoneSetting.SET_TARGET_SETPOINT.equals(zoneSetting) && isValidTemperatureSetPoint(value)) {
+			return value;
+		} else if (ZoneSetting.SET_OPEN_PERCENTAGE.equals(zoneSetting) && isValidOpenPercentage(value)){
+			return value;
+		} else {
+			throw new IllegalArgumentException("Value is outside allowable range.");
+		}
+	}
+	
+	protected ZonePower determineGroupPower(String groupPowerStr) {
+		switch (groupPowerStr.toLowerCase()) {
+		case "on":
+			return ZonePower.POWER_ON;
+		case "off":
+			return ZonePower.POWER_OFF;
+		case "turbo":
+			return ZonePower.TURBO_POWER;
+		default:
+			return ZonePower.NO_CHANGE;
+		}
+	}
+
+	private boolean isValidOpenPercentage(int value) {
+		return value >= 0 && value <= 100 && value % 5 == 0;
+	}
+
+	private boolean isValidTemperatureSetPoint(int value) {
+		return true; // TODD: Fix impl
+	}
+
+	protected int resolveNameToZoneIndex(String zoneName) throws UnresolvableZoneNameException {
+		return this.status.getZoneNames().entrySet().stream()
+				.filter(e -> e.getValue().equalsIgnoreCase(zoneName))
+				.findFirst()
+				.map(e -> e.getKey())
+				.orElseThrow(() -> new UnresolvableZoneNameException(String.format("Unable to resolve '%s' to a valid zone", zoneName)));
+	}
+	
+	public abstract void handleZoneInput(List<String> commandParams) throws NumberFormatException, IOException;
 }

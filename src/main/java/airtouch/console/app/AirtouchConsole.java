@@ -2,15 +2,13 @@ package airtouch.console.app;
 
 import static org.fusesource.jansi.Ansi.ansi;
 import static org.fusesource.jansi.Ansi.Color.GREEN;
-import static org.jline.builtins.Completers.TreeCompleter.node;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.regex.Pattern;
 
 import org.fusesource.jansi.AnsiConsole;
-import org.jline.builtins.Completers.TreeCompleter;
-import org.jline.reader.Completer;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -23,16 +21,12 @@ import airtouch.console.service.Airtouch4Service;
 import airtouch.console.service.Airtouch5Service;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
-import airtouch.constant.AirConditionerControlConstants.Mode;
 import airtouch.constant.AirConditionerControlConstants.AcPower;
-import airtouch.constant.ZoneControlConstants.ZoneControl;
-import airtouch.constant.ZoneControlConstants.ZonePower;
-import airtouch.constant.ZoneControlConstants.ZoneSetting;
+import airtouch.constant.AirConditionerControlConstants.Mode;
 import airtouch.discovery.AirtouchDiscoverer;
 import airtouch.discovery.AirtouchDiscoveryBroadcastResponseCallback;
 import airtouch.exception.AirtouchMessagingException;
 import airtouch.v4.handler.AirConditionerControlHandler;
-import airtouch.v4.handler.GroupControlHandler;
 
 @SuppressWarnings("java:S106") // Tell Sonar not to worry about System.out. We need to use it.
 public class AirtouchConsole {
@@ -48,6 +42,9 @@ public class AirtouchConsole {
 	private AirtouchDiscoverer airtouch4Discoverer;
 	private AirtouchDiscoverer airtouch5Discoverer;
 
+	private CustomCompleter completer;
+	private LocalDateTime lastUiUpdate = LocalDateTime.now();
+
 	public void begin() throws IOException {
 
 		String version = System.getProperty("java.runtime.version");
@@ -55,7 +52,8 @@ public class AirtouchConsole {
 		String vm = System.getProperty("java.vm.name");
 		log.info("Starting AirtouchConsole using {} :: Version: {} :: Vendor: {}" , vm, version, vendor);
 		AnsiConsole.systemInstall();
-		LineReader reader = initialiseCompleter();
+		LineReader reader = initialiseLineReader();
+		log.debug("reader: ", reader);
 		if (this.hostName == null) {
 
 			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
@@ -134,9 +132,11 @@ public class AirtouchConsole {
 		System.out.println(ansi().fg(GREEN).a("Fetching Airtouch data....").reset());
 
 		AirtouchService service = null;
+		log.debug("startUI: reader: ", reader);
+
 
 		if (AirtouchVersion.AIRTOUCH4.equals(airtouchVersion)) {
-			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
+			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader, completer);
 
 			service = new Airtouch4Service().confgure(AirtouchVersion.AIRTOUCH4, hostName, portNumber, airTouchStatusUpdater).start();
 			service.startHeartbeat(new HeartbeatSecondEventHandler() {
@@ -151,7 +151,7 @@ public class AirtouchConsole {
 				}
 			});
 		} else if (AirtouchVersion.AIRTOUCH5.equals(airtouchVersion)) {
-			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader);
+			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader, completer);
 
 			service = new Airtouch5Service().confgure(AirtouchVersion.AIRTOUCH5, hostName, portNumber, airTouchStatusUpdater).start();
 			service.startHeartbeat(new HeartbeatSecondEventHandler() {
@@ -187,36 +187,10 @@ public class AirtouchConsole {
 		service.stop();
 	}
 
-	private LineReader initialiseCompleter() {
-		Completer completer = new TreeCompleter(
-				node("ac",
-					node("0", "1", "2", "3",
-						node("power",
-							node("on", "off")
-						),
-						node("mode",
-							node("auto", "cool", "heat", "dry", "fan")
-						)
-					)
-				),
-				node("zone",
-					node("0", "1", "2", "3",
-						node("target-temp",
-							node("20","21","22","23","24","25") // TODO, this should be the valid temps as determined by AcStatus
-						),
-						node("open-percentage",
-							node("0", "5", "10", "15", "20", "25", "30", "35", "40", "45","50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100")
-						),
-						node("power",
-							node("on", "off", "turbo")
-						),
-						node("control",
-							node("temperature", "percentage")
-						)
-					)
-				),
-				node("quit")
-				);
+	private LineReader initialiseLineReader() {
+
+		completer = new CustomCompleter();
+		completer.setCompleter(CustomCompleter.getDefaultCompleter());
 
 		return LineReaderBuilder
 				.builder()
@@ -234,74 +208,9 @@ public class AirtouchConsole {
 			handleAcInput(service, list);
 			break;
 		case "zone":
-			handleZoneInput(service, list);
+			service.handleZoneInput(list);
 			break;
 		}
-	}
-
-	private void handleZoneInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
-		// zone 0/1/2/3 target-temp temp
-		// zone 0/1/2/3 power on/off
-		// zone 0/1/2/3 control temperature/percentage
-		switch (list.get(2).toLowerCase()) {
-		case "target-temp":
-			if (AirtouchVersion.AIRTOUCH4.equals(service.getAirtouchVersion())) {
-				service.sendRequest(
-					airtouch.v4.handler.GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
-					.setting(ZoneSetting.SET_TARGET_SETPOINT)
-					.settingValue(determineAndValidateSettingValue(ZoneSetting.SET_TARGET_SETPOINT, list.get(3)))
-					.build(service.getNextCounter()));
-			} else if (AirtouchVersion.AIRTOUCH5.equals(service.getAirtouchVersion())) {
-			/*	service.sendRequest(
-						airtouch.v5.handler.ZoneControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
-						.setting(ZoneSetting.SET_TARGET_SETPOINT)
-						.settingValue(determineAndValidateSettingValue(ZoneSetting.SET_TARGET_SETPOINT, list.get(3)))
-						.build(service.getNextCounter()));*/
-			}
-			break;
-		case "open-percentage":
-			service.sendRequest(
-					GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
-					.setting(ZoneSetting.SET_OPEN_PERCENTAGE)
-					.settingValue(determineAndValidateSettingValue(ZoneSetting.SET_OPEN_PERCENTAGE, list.get(3)))
-					.build(service.getNextCounter()));
-			break;
-		case "power":
-			service.sendRequest(
-					GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
-					.power(determineGroupPower(list.get(3)))
-					.build(service.getNextCounter()));
-			break;
-		case "control":
-			service.sendRequest(
-					GroupControlHandler.requestBuilder(Integer.valueOf(list.get(1)))
-					.control(determineGroupControl(list.get(3)))
-					.build(service.getNextCounter()));
-			break;
-		}
-	}
-
-	private ZoneControl determineGroupControl(String groupControlStr) {
-		return "temperature".equalsIgnoreCase(groupControlStr) ? ZoneControl.TEMPERATURE_CONTROL : ZoneControl.PERCENTAGE_CONTROL;
-	}
-
-	private int determineAndValidateSettingValue(ZoneSetting zoneSetting, String settingValue) {
-		int value = Integer.parseInt(settingValue);
-		if (ZoneSetting.SET_TARGET_SETPOINT.equals(zoneSetting) && isValidTemperatureSetPoint(value)) {
-			return value;
-		} else if (ZoneSetting.SET_OPEN_PERCENTAGE.equals(zoneSetting) && isValidOpenPercentage(value)){
-			return value;
-		} else {
-			throw new IllegalArgumentException("Value is outside allowable range.");
-		}
-	}
-
-	private boolean isValidOpenPercentage(int value) {
-		return value >= 0 && value <= 100 && value % 5 == 0;
-	}
-
-	private boolean isValidTemperatureSetPoint(int value) {
-		return true; // TODD: Fix impl
 	}
 
 	private void handleAcInput(AirtouchService service, List<String> list) throws IOException {
@@ -324,18 +233,7 @@ public class AirtouchConsole {
 		}
 	}
 
-	private ZonePower determineGroupPower(String groupPowerStr) {
-		switch (groupPowerStr.toLowerCase()) {
-		case "on":
-			return ZonePower.POWER_ON;
-		case "off":
-			return ZonePower.POWER_OFF;
-		case "turbo":
-			return ZonePower.TURBO_POWER;
-		default:
-			return ZonePower.NO_CHANGE;
-		}
-	}
+
 
 	private AcPower determineAcPower(String acPowerStr) {
 		return "on".equalsIgnoreCase(acPowerStr) ? AcPower.POWER_ON : AcPower.POWER_OFF;

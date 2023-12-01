@@ -6,6 +6,8 @@ import java.time.format.DateTimeFormatter;
 import static org.fusesource.jansi.Ansi.ansi;
 import static org.fusesource.jansi.Ansi.Color.GREEN;
 import static org.fusesource.jansi.Ansi.Color.YELLOW;
+import static org.fusesource.jansi.Ansi.Color.RED;
+
 import org.jline.reader.LineReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,14 +24,20 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
 
-		LineReader reader;
-		public AirTouchStatusUpdater(LineReader reader) {
+		private LineReader reader;
+
+		private CustomCompleter completer;
+		public AirTouchStatusUpdater(LineReader reader, CustomCompleter completer) {
 			this.reader = reader;
+			this.completer = completer;
 		}
 
 		@Override
 		@SuppressWarnings("java:S106") // Allow System.out.println as that is the console "UI".
 		public void eventReceived(AirtouchStatus status) {
+			
+			log.debug("reader: ", reader);
+
 
 			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
 				log.debug("UI updates paused. User input field is not blank.");
@@ -114,6 +122,9 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 					.a("╚══════════════════════════════════════════════════════════════════════════════╝")
 					.reset()
 					);
+			if (status.getUserError() != null) {
+				System.out.println(ansi().fg(RED).a(status.getUserError()).reset());
+			}
 			System.out.println(ansi()
 			.fg(YELLOW).a("Tab completion is enabled. Press tab at any time to show options").reset()
 			);
@@ -126,6 +137,11 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 		@SuppressWarnings("unused")
 		private String rightPaddedBox(int width, String inputString) {
 			return String.format(" %1$" + (width -2) + "s", inputString); //NOSONAR
+		}
+
+		@Override
+		public void bootStrapEventReceived(AirtouchStatus status) {
+			this.completer.setCompleter(CustomCompleter.getCustomCompleter(status));
 		}
 
 	}

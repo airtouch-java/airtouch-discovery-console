@@ -1,6 +1,7 @@
 package airtouch.console.service;
 
 import java.io.IOException;
+import java.util.List;
 
 import airtouch.Response;
 import airtouch.ResponseCallback;
@@ -46,6 +47,13 @@ public class Airtouch5Service extends AirtouchService<MessageConstants.Address> 
 		this.airtouchConnector.start();
 		this.requestUpdate();
 		return this;
+	}
+
+
+	@Override
+	public void handleZoneInput(List<String> commandParams) throws NumberFormatException, IOException {
+		// TODO Auto-generated method stub
+		
 	}
 
 }
