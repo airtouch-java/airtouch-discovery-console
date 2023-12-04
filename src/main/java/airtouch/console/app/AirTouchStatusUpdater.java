@@ -37,6 +37,9 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 		public void eventReceived(AirtouchStatus status) {
 			
 			log.debug("reader: ", reader);
+			if (reader != null && reader.getParsedLine() != null) {
+				log.debug("getParsedLine: ", reader.getParsedLine().words());
+			}
 
 
 			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {

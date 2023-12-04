@@ -45,6 +45,8 @@ public class AirtouchConsole {
 	private CustomCompleter completer;
 	private LocalDateTime lastUiUpdate = LocalDateTime.now();
 
+	private LineReader reader;
+
 	public void begin() throws IOException {
 
 		String version = System.getProperty("java.runtime.version");
@@ -52,8 +54,7 @@ public class AirtouchConsole {
 		String vm = System.getProperty("java.vm.name");
 		log.info("Starting AirtouchConsole using {} :: Version: {} :: Vendor: {}" , vm, version, vendor);
 		AnsiConsole.systemInstall();
-		LineReader reader = initialiseLineReader();
-		log.debug("reader: ", reader);
+		this.reader = initialiseLineReader();
 		if (this.hostName == null) {
 
 			System.out.println("Attemping to auto-discover airtouch on the network using UDP Broadcast.");
@@ -68,7 +69,7 @@ public class AirtouchConsole {
 								response.getHostAddress(),
 								response.getAirtouchId()));
 						stopDiscoverers();
-						startUI(reader, AirtouchVersion.AIRTOUCH4, response.getHostAddress(), response.getPortNumber());
+						startUI(AirtouchVersion.AIRTOUCH4, response.getHostAddress(), response.getPortNumber());
 					} catch (IOException e) {
 						log.warn("failed to auto start", e);
 					}
@@ -85,7 +86,7 @@ public class AirtouchConsole {
 								response.getHostAddress(),
 								response.getAirtouchId()));
 						stopDiscoverers();
-						startUI(reader, AirtouchVersion.AIRTOUCH5, response.getHostAddress(), response.getPortNumber());
+						startUI(AirtouchVersion.AIRTOUCH5, response.getHostAddress(), response.getPortNumber());
 					} catch (IOException e) {
 						log.warn("failed to auto start", e);
 					}
@@ -96,14 +97,14 @@ public class AirtouchConsole {
 			log.debug("Value for 'AIRTOUCH_HOST' found in environment. No attempts will be make to discover AirTouch. Using '{}' for connection. Attempting to connect to Airtouch units in the following order: AIRTOUCH5, AIRTOUCH4", this.hostName);
 			try {
 				System.out.println(String.format("Attempting to connect to host '%s' for Airtouch5 connection.", hostName));
-				startUI(reader, AirtouchVersion.AIRTOUCH5, hostName, AirtouchVersion.AIRTOUCH5.getListeningPort());
+				startUI(AirtouchVersion.AIRTOUCH5, hostName, AirtouchVersion.AIRTOUCH5.getListeningPort());
 			} catch (IOException | AirtouchMessagingException e) {
 				System.out.println("Failed to start Airtouch5. Trying Airtouch4");
 				log.debug("Failed to start Airtouch5. Trying Airtouch4", e);
 			}
 			try {
 				System.out.println(String.format("Attempting to connect to host '%s' for Airtouch4 connection.", hostName));
-				startUI(reader, AirtouchVersion.AIRTOUCH4, hostName, AirtouchVersion.AIRTOUCH4.getListeningPort());
+				startUI(AirtouchVersion.AIRTOUCH4, hostName, AirtouchVersion.AIRTOUCH4.getListeningPort());
 			} catch (IOException | AirtouchMessagingException e) {
 				System.out.println("Failed to start Airtouch4. Giving up.  :-(     See log for more details");
 				log.debug("Failed to start Airtouch4. ", e);
@@ -123,7 +124,7 @@ public class AirtouchConsole {
 	}
 
 	@SuppressWarnings("deprecation")
-	private void startUI(LineReader reader, AirtouchVersion airtouchVersion, String hostName, Integer portNumber) throws IOException {
+	private void startUI(AirtouchVersion airtouchVersion, String hostName, Integer portNumber) throws IOException {
 
 		String prompt = "";
 
@@ -132,7 +133,7 @@ public class AirtouchConsole {
 		System.out.println(ansi().fg(GREEN).a("Fetching Airtouch data....").reset());
 
 		AirtouchService service = null;
-		log.debug("startUI: reader: ", reader);
+		log.debug("startUI: reader: ", this.reader);
 
 
 		if (AirtouchVersion.AIRTOUCH4.equals(airtouchVersion)) {
