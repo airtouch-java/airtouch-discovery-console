@@ -169,8 +169,6 @@ public abstract class AirtouchService<T> {
 		}
 	}
 
-
-
 	private ZoneNameResponse zoneRenamer(ZoneNameResponse z) {
 		if (System.getenv("ZONE_" + z.getName().toUpperCase()) != null) {
 			z.setName(System.getenv("ZONE_" + z.getName().toUpperCase()));
@@ -178,11 +176,7 @@ public abstract class AirtouchService<T> {
 		return z;
 	}
 
-
-
-
-
-	protected ZoneControl determineGroupControl(String groupControlStr) {
+	protected ZoneControl determineZoneControl(String groupControlStr) {
 		return "temperature".equalsIgnoreCase(groupControlStr) ? ZoneControl.TEMPERATURE_CONTROL : ZoneControl.PERCENTAGE_CONTROL;
 	}
 
