@@ -6,13 +6,11 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import airtouch.AirtouchVersion;
 import airtouch.Response;
 import airtouch.ResponseCallback;
 import airtouch.connector.AirtouchConnector;
 import airtouch.connector.AirtouchConnectorThreadFactory;
 import airtouch.constant.ZoneControlConstants.ZoneSetting;
-import airtouch.v4.builder.GroupControlRequestBuilder;
 import airtouch.v4.connector.Airtouch4ConnectorThreadFactory;
 import airtouch.v4.constant.MessageConstants;
 import airtouch.v4.handler.AirConditionerAbilityHandler;
@@ -21,7 +19,6 @@ import airtouch.v4.handler.ConsoleVersionHandler;
 import airtouch.v4.handler.GroupControlHandler;
 import airtouch.v4.handler.GroupNameHandler;
 import airtouch.v4.handler.GroupStatusHandler;
-import lombok.extern.java.Log;
 public class Airtouch4Service extends AirtouchService<MessageConstants.Address> {
 	
     private final Logger log = LoggerFactory.getLogger(Airtouch4Service.class);
@@ -96,11 +93,10 @@ public class Airtouch4Service extends AirtouchService<MessageConstants.Address> 
 		case "control":
 			sendRequest(
 					GroupControlHandler.requestBuilder(Integer.valueOf(commandParams.get(1)))
-					.control(determineGroupControl(commandParams.get(3)))
+					.control(determineZoneControl(commandParams.get(3)))
 					.build(getNextCounter()));
 			break;
 		}
-		
 	}
 
 }
