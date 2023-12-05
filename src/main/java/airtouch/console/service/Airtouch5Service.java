@@ -3,10 +3,15 @@ package airtouch.console.service;
 import java.io.IOException;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import airtouch.Response;
 import airtouch.ResponseCallback;
 import airtouch.connector.AirtouchConnector;
 import airtouch.connector.AirtouchConnectorThreadFactory;
+import airtouch.constant.ZoneControlConstants.ZoneSetting;
+import airtouch.v5.handler.ZoneControlHandler;
 import airtouch.v5.connector.Airtouch5ConnectorThreadFactory;
 import airtouch.v5.constant.MessageConstants;
 import airtouch.v5.handler.AirConditionerAbilityHandler;
@@ -16,6 +21,9 @@ import airtouch.v5.handler.ZoneNameHandler;
 import airtouch.v5.handler.ZoneStatusHandler;
 
 public class Airtouch5Service extends AirtouchService<MessageConstants.Address> {
+	
+    private final Logger log = LoggerFactory.getLogger(Airtouch5Service.class);
+
 
 	protected void requestUpdate() throws IOException {
 		this.responseReceived.clear();
@@ -52,8 +60,45 @@ public class Airtouch5Service extends AirtouchService<MessageConstants.Address> 
 
 	@Override
 	public void handleZoneInput(List<String> commandParams) throws NumberFormatException, IOException {
-		// TODO Auto-generated method stub
-		
+		// zone 0/1/2/3 target-temp temp
+		// zone 0/1/2/3 power on/off
+		// zone 0/1/2/3 control temperature/percentage
+		int zoneIndex = -1;
+		try {
+			zoneIndex = resolveNameToZoneIndex(commandParams.get(1));
+		} catch (UnresolvableZoneNameException ex) {
+			this.getStatus().setUserError(ex.getMessage());
+			eventListener.eventReceived(getStatus());
+			log.debug("User error: {}", ex.getMessage());
+			return;
+		}
+		switch (commandParams.get(2).toLowerCase()) {
+		case "target-temp":
+				sendRequest(
+					ZoneControlHandler.requestBuilder(zoneIndex)
+					.setting(ZoneSetting.SET_TARGET_SETPOINT)
+					.settingValue(determineAndValidateSettingValue(ZoneSetting.SET_TARGET_SETPOINT, commandParams.get(3)))
+					.build(getNextCounter()));
+			break;
+		case "open-percentage":
+			sendRequest(
+					ZoneControlHandler.requestBuilder(zoneIndex)
+					.setting(ZoneSetting.SET_OPEN_PERCENTAGE)
+					.settingValue(determineAndValidateSettingValue(ZoneSetting.SET_OPEN_PERCENTAGE, commandParams.get(3)))
+					.build(getNextCounter()));
+			break;
+		case "power":
+			sendRequest(
+					ZoneControlHandler.requestBuilder(zoneIndex)
+					.power(determineGroupPower(commandParams.get(3)))
+					.build(getNextCounter()));
+			break;
+		case "control":
+			sendRequest(
+					ZoneControlHandler.requestBuilder(Integer.valueOf(commandParams.get(1)))
+					.control(determineZoneControl(commandParams.get(3)))
+					.build(getNextCounter()));
+			break;
+		}
 	}
-
 }
