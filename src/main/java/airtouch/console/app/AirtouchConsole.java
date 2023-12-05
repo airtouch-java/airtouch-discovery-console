@@ -132,7 +132,7 @@ public class AirtouchConsole {
 		AnsiConsole.out.println(ansi().eraseScreen().fg(GREEN).a("AirTouch Console").reset());
 		System.out.println(ansi().fg(GREEN).a("Fetching Airtouch data....").reset());
 
-		AirtouchService service = null;
+		AirtouchService<?> service = null;
 		log.debug("startUI: reader: ", this.reader);
 
 
