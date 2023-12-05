@@ -35,7 +35,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 		@Override
 		@SuppressWarnings("java:S106") // Allow System.out.println as that is the console "UI".
 		public void eventReceived(AirtouchStatus status) {
-			
+			int count = 0;
 			log.debug("reader: ", reader);
 			if (reader != null && reader.getParsedLine() != null) {
 				log.debug("getParsedLine: ", reader.getParsedLine().words());
@@ -61,7 +61,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 					);
 			for (AirConditionerStatusResponse acStatus : status.getAcStatuses()) {
 				System.out.println(ansi()
-						.a("╠══════════════════════════════════════════════════════════════════════════════╣")
+						.a("╠═══════════════════╦══════════════╦═══════════════════════╦═══════════════════╣")
 						.reset()
 						);
 				System.out.println(ansi()
@@ -92,11 +92,19 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 
 			}
 			for ( ZoneStatusResponse groupStatus :  status.getZoneStatuses()) {
-				System.out.println(ansi()
-						.fg(YELLOW)
-						.a("╠══════════════════════════════════════════════════════════════════════════════╣")
-						.reset()
-						);
+				if (count++ == 0) {
+					System.out.println(ansi()
+							.fg(YELLOW)
+							.a("╠═══════════════════╬══════════════╩═══════════════════════╬═══════════════════╣")
+							.reset()
+							);
+				} else {
+					System.out.println(ansi()
+							.fg(YELLOW)
+							.a("╠═══════════════════╬═══════════════════╩══════════════════╬═══════════════════╣")
+							.reset()
+							);
+				}
 				System.out.println(ansi()
 						.fg(YELLOW).a("║").reset()
 						.a(leftPaddedBox(20, String.format("Group: %d (%s) ", groupStatus.getZoneNumber(), status.getZoneNames().getOrDefault(groupStatus.getZoneNumber(), "Unknown"))))
@@ -122,7 +130,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 
 			System.out.println(ansi()
 					.fg(YELLOW)
-					.a("╚══════════════════════════════════════════════════════════════════════════════╝")
+					.a("╚═══════════════════╩═══════════════════╩══════════════════╩═══════════════════╝")
 					.reset()
 					);
 			if (status.getUserError() != null) {
