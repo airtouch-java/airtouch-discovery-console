@@ -43,7 +43,6 @@ public class AirtouchConsole {
 	private AirtouchDiscoverer airtouch5Discoverer;
 
 	private CustomCompleter completer;
-	private LocalDateTime lastUiUpdate = LocalDateTime.now();
 
 	private LineReader reader;
 
@@ -137,7 +136,7 @@ public class AirtouchConsole {
 
 
 		if (AirtouchVersion.AIRTOUCH4.equals(airtouchVersion)) {
-			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader, completer);
+			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(this.reader, this.completer);
 
 			service = new Airtouch4Service().confgure(AirtouchVersion.AIRTOUCH4, hostName, portNumber, airTouchStatusUpdater).start();
 			service.startHeartbeat(new HeartbeatSecondEventHandler() {
@@ -152,7 +151,7 @@ public class AirtouchConsole {
 				}
 			});
 		} else if (AirtouchVersion.AIRTOUCH5.equals(airtouchVersion)) {
-			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(reader, completer);
+			AirTouchStatusUpdater airTouchStatusUpdater = new AirTouchStatusUpdater(this.reader, this.completer);
 
 			service = new Airtouch5Service().confgure(AirtouchVersion.AIRTOUCH5, hostName, portNumber, airTouchStatusUpdater).start();
 			service.startHeartbeat(new HeartbeatSecondEventHandler() {
