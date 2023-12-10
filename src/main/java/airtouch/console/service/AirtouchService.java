@@ -19,6 +19,8 @@ import airtouch.console.data.AirtouchStatus;
 import airtouch.console.event.AirtouchStatusEventListener;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatMinuteEventHandler;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
+import airtouch.constant.AirConditionerControlConstants.AcPower;
+import airtouch.constant.AirConditionerControlConstants.Mode;
 import airtouch.constant.ZoneControlConstants.ZoneControl;
 import airtouch.constant.ZoneControlConstants.ZonePower;
 import airtouch.constant.ZoneControlConstants.ZoneSetting;
@@ -220,5 +222,27 @@ public abstract class AirtouchService<T> {
 				.orElseThrow(() -> new UnresolvableZoneNameException(String.format("Unable to resolve '%s' to a valid zone", zoneName)));
 	}
 	
+	protected AcPower determineAcPower(String acPowerStr) {
+		return "on".equalsIgnoreCase(acPowerStr) ? AcPower.POWER_ON : AcPower.POWER_OFF;
+	}
+
+	protected Mode determineAcMode(String acModeStr) {
+		switch (acModeStr.toLowerCase()) {
+		case "auto":
+			return Mode.AUTO;
+		case "cool":
+			return Mode.COOL;
+		case "dry":
+			return Mode.DRY;
+		case "fan":
+			return Mode.FAN;
+		case "heat":
+			return Mode.HEAT;
+		default:
+			return Mode.NO_CHANGE;
+		}
+	}
+	
+	public abstract void handleAcInput(List<String> commandParams) throws NumberFormatException, IOException;
 	public abstract void handleZoneInput(List<String> commandParams) throws NumberFormatException, IOException;
 }

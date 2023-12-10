@@ -2,7 +2,6 @@ package airtouch.console.app;
 
 import static org.jline.builtins.Completers.TreeCompleter.node;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;

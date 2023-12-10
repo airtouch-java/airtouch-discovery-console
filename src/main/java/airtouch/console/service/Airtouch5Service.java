@@ -11,12 +11,13 @@ import airtouch.ResponseCallback;
 import airtouch.connector.AirtouchConnector;
 import airtouch.connector.AirtouchConnectorThreadFactory;
 import airtouch.constant.ZoneControlConstants.ZoneSetting;
-import airtouch.v5.handler.ZoneControlHandler;
 import airtouch.v5.connector.Airtouch5ConnectorThreadFactory;
 import airtouch.v5.constant.MessageConstants;
 import airtouch.v5.handler.AirConditionerAbilityHandler;
+import airtouch.v5.handler.AirConditionerControlHandler;
 import airtouch.v5.handler.AirConditionerStatusHandler;
 import airtouch.v5.handler.ConsoleVersionHandler;
+import airtouch.v5.handler.ZoneControlHandler;
 import airtouch.v5.handler.ZoneNameHandler;
 import airtouch.v5.handler.ZoneStatusHandler;
 
@@ -57,7 +58,27 @@ public class Airtouch5Service extends AirtouchService<MessageConstants.Address> 
 		return this;
 	}
 
-
+	@Override
+	public void handleAcInput(List<String> list) throws IOException {
+		// ac 0/1/2/3 power on/off
+		switch (list.get(2).toLowerCase()) {
+		case "power":
+			this.sendRequest(
+				AirConditionerControlHandler.requestBuilder()
+				.acNumber(Integer.valueOf(list.get(1)))
+				.acPower(determineAcPower(list.get(3)))
+				.build(this.getNextCounter()));
+			break;
+		case "mode":
+			this.sendRequest(
+					AirConditionerControlHandler.requestBuilder()
+					.acNumber(Integer.valueOf(list.get(1)))
+					.acMode(determineAcMode(list.get(3)))
+					.build(this.getNextCounter()));
+			break;
+		}
+	}
+	
 	@Override
 	public void handleZoneInput(List<String> commandParams) throws NumberFormatException, IOException {
 		// zone 0/1/2/3 target-temp temp

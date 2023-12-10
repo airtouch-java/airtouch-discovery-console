@@ -4,7 +4,6 @@ import static org.fusesource.jansi.Ansi.ansi;
 import static org.fusesource.jansi.Ansi.Color.GREEN;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -21,12 +20,9 @@ import airtouch.console.service.Airtouch4Service;
 import airtouch.console.service.Airtouch5Service;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.console.service.AirtouchService;
-import airtouch.constant.AirConditionerControlConstants.AcPower;
-import airtouch.constant.AirConditionerControlConstants.Mode;
 import airtouch.discovery.AirtouchDiscoverer;
 import airtouch.discovery.AirtouchDiscoveryBroadcastResponseCallback;
 import airtouch.exception.AirtouchMessagingException;
-import airtouch.v4.handler.AirConditionerControlHandler;
 
 @SuppressWarnings("java:S106") // Tell Sonar not to worry about System.out. We need to use it.
 public class AirtouchConsole {
@@ -198,61 +194,18 @@ public class AirtouchConsole {
 				.build();
 	}
 
-	private void handleInput(AirtouchService service, List<String> list) throws NumberFormatException, IOException {
+	private void handleInput(AirtouchService<?> service, List<String> list) throws NumberFormatException, IOException {
 		switch(list.get(0).toLowerCase()) {
 		case "quit":
 			this.running = false;
 			System.exit(0);
 			break;
 		case "ac":
-			handleAcInput(service, list);
+			service.handleAcInput(list);
 			break;
 		case "zone":
 			service.handleZoneInput(list);
 			break;
-		}
-	}
-
-	private void handleAcInput(AirtouchService service, List<String> list) throws IOException {
-		// ac 0/1/2/3 power on/off
-		switch (list.get(2).toLowerCase()) {
-		case "power":
-			service.sendRequest(
-				AirConditionerControlHandler.requestBuilder()
-				.acNumber(Integer.valueOf(list.get(1)))
-				.acPower(determineAcPower(list.get(3)))
-				.build(service.getNextCounter()));
-			break;
-		case "mode":
-			service.sendRequest(
-					AirConditionerControlHandler.requestBuilder()
-					.acNumber(Integer.valueOf(list.get(1)))
-					.acMode(determineAcMode(list.get(3)))
-					.build(service.getNextCounter()));
-			break;
-		}
-	}
-
-
-
-	private AcPower determineAcPower(String acPowerStr) {
-		return "on".equalsIgnoreCase(acPowerStr) ? AcPower.POWER_ON : AcPower.POWER_OFF;
-	}
-
-	private Mode determineAcMode(String acModeStr) {
-		switch (acModeStr.toLowerCase()) {
-		case "auto":
-			return Mode.AUTO;
-		case "cool":
-			return Mode.COOL;
-		case "dry":
-			return Mode.DRY;
-		case "fan":
-			return Mode.FAN;
-		case "heat":
-			return Mode.HEAT;
-		default:
-			return Mode.NO_CHANGE;
 		}
 	}
 
