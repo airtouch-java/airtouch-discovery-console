@@ -173,10 +173,7 @@ public class AirtouchConsole {
 				return;
 			}
 			if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
-				log.debug("Words: {}", reader.getParsedLine().words());
 				handleInput(service, reader.getParsedLine().words());
-			} else {
-				System.out.println(reader.getParsedLine().words());
 			}
 		}
 

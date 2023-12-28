@@ -74,7 +74,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 		}
 
 
-		if (reader != null && reader.getParsedLine() != null && !reader.getParsedLine().words().isEmpty()) {
+		if (reader != null && reader.getBuffer() != null && reader.getBuffer().cursor() > 0) {
 			log.debug("UI updates paused. User input field is not blank.");
 			return;
 		}
