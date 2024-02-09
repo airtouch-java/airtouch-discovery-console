@@ -28,14 +28,14 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 	private static final Logger log = LoggerFactory.getLogger(AirTouchStatusUpdater.class);
 
 	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-
+	private static final PaddingDecimalFormat TEMPERATURE_FORMATTER = new PaddingDecimalFormat("#0.0", 4);
 
 	private LineReader reader;
 
 	private CustomCompleter completer;
 
 	private AirtouchStatusWrapper status;
-	
+
 	private Instant lastUiUpdate = Instant.now();
 
 	public AirTouchStatusUpdater(LineReader reader, CustomCompleter completer) {
@@ -43,7 +43,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 		this.completer = completer;
 		new AirtouchHeartbeatThread(
 				new HeartbeatSecondEventHandler() {
-					
+
 					@Override
 					public void handleSecondEvent() {
 						if (status != null && status.getUpdateTime()!= null && status.getUpdateTime().isAfter(lastUiUpdate)){
@@ -52,7 +52,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 					}
 				},
 				new HeartbeatMinuteEventHandler() {
-					
+
 					@Override
 					public void handleMinuteEvent() {
 					}
@@ -64,7 +64,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 	public void eventReceived(AirtouchStatus status) {
 		this.status = new AirtouchStatusWrapper(status, Instant.now());
 	}
-	
+
 	private void updateUi() {
 		this.lastUiUpdate = Instant.now();
 		int count = 0;
@@ -82,18 +82,18 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 		System.out.println(ansi()
 				.eraseScreen()
 				.fg(YELLOW)
-				.a("╔══════════════════════════════════════════════════════════════════════════════╗")
+				.a("╔════════════════════════════════════════════════════════════════════════════════╗")
 				);
 		System.out.println(ansi()
 				.fg(YELLOW).a("║")
 				.fg(GREEN)
 				.a(String.format(" AirTouch Console(s) - versions: %1$-27s", status.status.getConsoleVersion() != null ? status.status.getConsoleVersion().getVersions() : "Unknown"))
-				.a(String.format("Updated: %1$8s ", LocalTime.now().format(formatter)))
+				.a(String.format("Updated: %1$8s   ", LocalTime.now().format(formatter)))
 				.fg(YELLOW).a("║")
 				);
 		for (AirConditionerStatusResponse acStatus : status.status.getAcStatuses()) {
 			System.out.println(ansi()
-					.a("╠═══════════════════╦══════════════╦═══════════════════════╦═══════════════════╣")
+					.a("╠═══════════════════╦══════════════╦═══════════════════════╦═════════════════════╣")
 					.reset()
 					);
 			System.out.println(ansi()
@@ -107,7 +107,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 					.fg(YELLOW).a("║").reset()
 					.a(leftPaddedBox(24,String.format("Fan Speed: %s ", acStatus.getFanSpeed())))
 					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(20,String.format("Temperature: %d°C ", acStatus.getCurrentTemperature())))
+					.a(leftPaddedBox(20,String.format("Temperature: %s°C ", doubleValueFormatter(acStatus.getCurrentTemperature()))))
 					.fg(YELLOW).a("║").reset()
 					);
 			System.out.println(ansi()
@@ -116,9 +116,9 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 					.fg(YELLOW).a("║").reset()
 					.a(leftPaddedBox(15,String.format("Mode: %s ", acStatus.getMode())))
 					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(24,String.format("Target temp: %s°C", acStatus.getTargetSetpoint())))
+					.a(leftPaddedBox(24,String.format("Target temp: %s°C", TEMPERATURE_FORMATTER.format(acStatus.getTargetSetpoint()))))
 					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(20,String.format("ErrorCode: %s", acStatus.getErrorCode())))
+					.a(leftPaddedBox(22,String.format("ErrorCode:   %s", acStatus.getErrorCode())))
 					.fg(YELLOW).a("║").reset()
 					);
 
@@ -127,23 +127,23 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 			if (count++ == 0) {
 				System.out.println(ansi()
 						.fg(YELLOW)
-						.a("╠═══════════════════╬══════════════╩═══════════════════════╬═══════════════════╣")
+						.a("╠═══════════════════╬══════════════╩═══════════════════════╬═════════════════════╣")
 						.reset()
 						);
 			} else {
 				System.out.println(ansi()
 						.fg(YELLOW)
-						.a("╠═══════════════════╬═══════════════════╩══════════════════╬═══════════════════╣")
+						.a("╠═══════════════════╬═══════════════════╩══════════════════╬═════════════════════╣")
 						.reset()
 						);
 			}
 			System.out.println(ansi()
 					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(20, String.format("Group: %d (%s) ", groupStatus.getZoneNumber(), status.status.getZoneNames().getOrDefault(groupStatus.getZoneNumber(), "Unknown"))))
+					.a(leftPaddedBox(20, String.format("%s ", status.status.getZoneNames().getOrDefault(groupStatus.getZoneNumber(), "Unknown"))))
 					.fg(YELLOW).a("║").reset()
 					.a(leftPaddedBox(39, String.format("Control Method: %s ", groupStatus.getControlMethod())))
 					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(20, String.format("Temperature: %d°C ", groupStatus.getCurrentTemperature())))
+					.a(leftPaddedBox(20, String.format("Temperature: %s°C ", doubleValueFormatter(groupStatus.getCurrentTemperature()))))
 					.fg(YELLOW).a("║").reset()
 					);
 			System.out.println(ansi()
@@ -154,7 +154,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 					.fg(YELLOW).a("║").reset()
 					.a(leftPaddedBox(19, String.format("Power state: %s ", groupStatus.getPowerstate())))
 					.fg(YELLOW).a("║").reset()
-					.a(leftPaddedBox(20, String.format("Target temp: %s°C ", groupStatus.getTargetSetpoint())))
+					.a(leftPaddedBox(20, String.format("Target temp: %s°C ", TEMPERATURE_FORMATTER.format(groupStatus.getTargetSetpoint()))))
 					.fg(YELLOW).a("║").reset()
 					);
 
@@ -162,7 +162,7 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 
 		System.out.println(ansi()
 				.fg(YELLOW)
-				.a("╚═══════════════════╩═══════════════════╩══════════════════╩═══════════════════╝")
+				.a("╚═══════════════════╩═══════════════════╩══════════════════╩═════════════════════╝")
 				.reset()
 				);
 		if (status.status.getUserError() != null) {
@@ -186,12 +186,19 @@ public class AirTouchStatusUpdater implements AirtouchStatusEventListener<Airtou
 	public void bootStrapEventReceived(AirtouchStatus status) {
 		this.completer.setCompleter(CustomCompleter.getCustomCompleter(status));
 	}
-	
+
 	@Data @AllArgsConstructor
 	public class AirtouchStatusWrapper {
 		private AirtouchStatus status;
 		private Instant updateTime;
 
+	}
+
+	public static String doubleValueFormatter(Double temperature) {
+		if (temperature >= 100d) {
+			return TEMPERATURE_FORMATTER.format(99.9d);
+		}
+		return TEMPERATURE_FORMATTER.format(temperature);
 	}
 
 }
