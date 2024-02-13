@@ -6,8 +6,6 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import airtouch.Response;
-import airtouch.ResponseCallback;
 import airtouch.connector.AirtouchConnector;
 import airtouch.connector.AirtouchConnectorThreadFactory;
 import airtouch.constant.ZoneControlConstants.ZoneSetting;
@@ -46,11 +44,7 @@ public class Airtouch4Service extends AirtouchService<MessageConstants.Address> 
 	public AirtouchService<MessageConstants.Address> start() throws IOException {
 
 		AirtouchConnectorThreadFactory threadFactory = new Airtouch4ConnectorThreadFactory();
-		this.airtouchConnector = new AirtouchConnector<MessageConstants.Address>(threadFactory, this.hostName, this.portNumber, new ResponseCallback() {
-			public void handleResponse(Response response) {
-				eventReceived(response);
-			}
-		});
+		this.airtouchConnector = new AirtouchConnector<MessageConstants.Address>(threadFactory, this.hostName, this.portNumber, this::eventReceived);
 		this.airtouchConnector.start();
 		this.requestUpdate();
 		return this;
