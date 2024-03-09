@@ -6,5 +6,5 @@
 .DS_Store
 # Java annotation processor (APT)
 .factorypath
-/airtouch-discovery-console.log
+/airtouch-discovery-console.log*
 /dependency-reduced-pom.xml
