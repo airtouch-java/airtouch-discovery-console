@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -17,7 +18,6 @@ import airtouch.Response;
 import airtouch.connector.AirtouchConnector;
 import airtouch.console.data.AirtouchStatus;
 import airtouch.console.event.AirtouchStatusEventListener;
-import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatMinuteEventHandler;
 import airtouch.console.service.AirtouchHeartbeatThread.HeartbeatSecondEventHandler;
 import airtouch.constant.AirConditionerControlConstants.AcPower;
 import airtouch.constant.AirConditionerControlConstants.Mode;
@@ -25,10 +25,8 @@ import airtouch.constant.ZoneControlConstants.ZoneControl;
 import airtouch.constant.ZoneControlConstants.ZonePower;
 import airtouch.constant.ZoneControlConstants.ZoneSetting;
 import airtouch.model.AirConditionerAbilityResponse;
-import airtouch.model.AirConditionerStatusResponse;
 import airtouch.model.ConsoleVersionResponse;
 import airtouch.model.ZoneNameResponse;
-import airtouch.model.ZoneStatusResponse;
 
 public abstract class AirtouchService<T> {
 
@@ -66,30 +64,27 @@ public abstract class AirtouchService<T> {
 	public abstract AirtouchService<T> start() throws IOException;
 
 
-	public void startHeartbeat(HeartbeatSecondEventHandler heartbeatSecondEventHandler) throws IOException {
+	public void startHeartbeat(HeartbeatSecondEventHandler heartbeatSecondEventHandler) {
 		new AirtouchHeartbeatThread(
 				heartbeatSecondEventHandler,
-				new HeartbeatMinuteEventHandler() {
-					@Override
-					public void handleMinuteEvent() {
+				() -> {
+					try {
+						requestUpdate();
+					} catch (IOException e) {
+						log.warn(e.getMessage());
 						try {
-							requestUpdate();
-						} catch (IOException e) {
-							log.warn(e.getMessage());
-							try {
-								airtouchConnector.shutdown();
-							} catch (Exception ex) {
-								log.warn("Failed to shutdown airtouchConnector: {}", e.getMessage(), e);
-							}
+							airtouchConnector.shutdown();
+						} catch (Exception ex) {
+							log.warn("Failed to shutdown airtouchConnector: {}", e.getMessage(), e);
+						}
 
-							try {
-								airtouchConnector.start();
-							} catch (Exception ex) {
-								log.warn("Failed to start airtouchConnector: {}", e.getMessage(), e);
-							}
+						try {
+							airtouchConnector.start();
+						} catch (Exception ex) {
+							log.warn("Failed to start airtouchConnector: {}", e.getMessage(), e);
 						}
 					}
-		}).start();
+				}).start();
 
 	}
 
@@ -120,16 +115,16 @@ public abstract class AirtouchService<T> {
 
 		switch (response.getMessageType()) {
 		case AC_STATUS:
-			status.setAcStatuses((List<AirConditionerStatusResponse>) response.getData());
+			status.setAcStatuses(response.getData());
 			break;
 		case ZONE_STATUS:
-			status.setZoneStatuses((List<ZoneStatusResponse>) response.getData());
+			status.setZoneStatuses(response.getData());
 			break;
 		case ZONE_NAME:
 			status.setZoneNames(
 					((List<ZoneNameResponse>) response.getData())
 					.stream()
-					.map(z ->zoneRenamer(z))
+					.map(this::zoneRenamer)
 					.collect(Collectors.toMap(ZoneNameResponse::getZoneNumber, ZoneNameResponse::getName)));
 			break;
 		case AC_ABILITY:
@@ -218,7 +213,7 @@ public abstract class AirtouchService<T> {
 		return this.status.getZoneNames().entrySet().stream()
 				.filter(e -> e.getValue().equalsIgnoreCase(zoneName))
 				.findFirst()
-				.map(e -> e.getKey())
+				.map(Entry::getKey)
 				.orElseThrow(() -> new UnresolvableZoneNameException(String.format("Unable to resolve '%s' to a valid zone", zoneName)));
 	}
 	

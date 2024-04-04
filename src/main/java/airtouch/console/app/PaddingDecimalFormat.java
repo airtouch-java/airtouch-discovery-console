@@ -4,7 +4,8 @@ import java.text.DecimalFormatSymbols;
 import java.text.FieldPosition;
 
 public class PaddingDecimalFormat extends DecimalFormat {
-    private int minimumLength;
+    private static final long serialVersionUID = 1L;
+	private int minimumLength;
 
     /**
      * Creates a PaddingDecimalFormat using the given pattern and minimum minimumLength and the symbols for the default locale.
