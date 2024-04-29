@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>airtouch.utils</groupId>
 	<artifactId>airtouch-discovery-console</artifactId>
-	<version>0.0.5</version>
+	<version>0.0.6</version>
 	<name>AirTouch Discovery Console</name>
 	<description>A console app that attempts to discover and print information about your AirTouch instance</description>
 
@@ -19,7 +19,7 @@
 		<dependency>
 			<groupId>io.github.airtouch-java</groupId>
 			<artifactId>airtouch-utils</artifactId>
-			<version>1.5.1</version>
+			<version>1.5.2</version>
 		</dependency>
 		<dependency>
 			<groupId>org.fusesource.jansi</groupId>
